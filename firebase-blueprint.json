@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and language learning stats",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "targetLanguage": { "type": "string", "enum": ["en", "ku", "ar"] },
+        "uiLanguage": { "type": "string", "enum": ["ku", "en", "ar"] },
+        "highestCefrLevel": { "type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] },
+        "totalAttempts": { "type": "number" },
+        "averageScore": { "type": "number" },
+        "completedStages": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "targetLanguage", "createdAt"]
+    },
+    "SpeakingAttempt": {
+      "title": "SpeakingAttempt",
+      "description": "A single evaluated voice speaking attempt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "stageId": { "type": "number" },
+        "stageLevel": { "type": "string" },
+        "stageTitle": { "type": "string" },
+        "language": { "type": "string", "enum": ["en", "ku", "ar"] },
+        "overallScore": { "type": "number" },
+        "cefrLevel": { "type": "string" },
+        "scores": {
+          "type": "object",
+          "properties": {
+            "pronunciation": { "type": "number" },
+            "fluency": { "type": "number" },
+            "vocabulary": { "type": "number" },
+            "grammar": { "type": "number" }
+          }
+        },
+        "recognizedText": { "type": "string" },
+        "audioBase64": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "durationSeconds": { "type": "number" },
+        "timestamp": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "stageId", "language", "overallScore", "cefrLevel", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data and settings"
+    },
+    "/speaking_attempts/{attemptId}": {
+      "schema": "SpeakingAttempt",
+      "description": "Speaking evaluation records and audio attempts"
+    }
+  }
+}

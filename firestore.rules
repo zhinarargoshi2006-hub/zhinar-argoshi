@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for User documents
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'targetLanguage', 'createdAt'])
+        && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
+        && data.targetLanguage in ['en', 'ku', 'ar']
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 128))
+        && (!('uiLanguage' in data) || data.uiLanguage in ['ku', 'en', 'ar'])
+        && (!('highestCefrLevel' in data) || data.highestCefrLevel in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+        && (!('totalAttempts' in data) || data.totalAttempts is number)
+        && (!('averageScore' in data) || data.averageScore is number)
+        && (!('completedStages' in data) || (data.completedStages is list && data.completedStages.size() <= 200))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    // Validation for SpeakingAttempt documents
+    function isValidAttempt(data) {
+      return data.keys().hasAll(['userId', 'stageId', 'language', 'overallScore', 'cefrLevel', 'timestamp'])
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.stageId is number
+        && data.language in ['en', 'ku', 'ar']
+        && data.overallScore is number && data.overallScore >= 0 && data.overallScore <= 100
+        && data.cefrLevel is string && data.cefrLevel.size() <= 16
+        && data.timestamp is number
+        && (!('stageLevel' in data) || (data.stageLevel is string && data.stageLevel.size() <= 32))
+        && (!('stageTitle' in data) || (data.stageTitle is string && data.stageTitle.size() <= 256))
+        && (!('scores' in data) || data.scores is map)
+        && (!('recognizedText' in data) || (data.recognizedText is string && data.recognizedText.size() <= 4000))
+        && (!('audioBase64' in data) || (data.audioBase64 is string && data.audioBase64.size() <= 1000000))
+        && (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 64))
+        && (!('durationSeconds' in data) || data.durationSeconds is number)
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64));
+    }
+
+    // Validation for Weekly Leaderboard documents
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'weeklyXp', 'cefrLevel', 'updatedAt'])
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 64
+        && data.weeklyXp is number && data.weeklyXp >= 0
+        && data.cefrLevel is string && data.cefrLevel.size() <= 16
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 32))
+        && (!('streakDays' in data) || data.streakDays is number)
+        && (!('language' in data) || data.language in ['en', 'ku', 'ar'])
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if false;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+
+    // Speaking Attempts Collection
+    match /speaking_attempts/{attemptId} {
+      allow get: if isValidId(attemptId);
+      allow list: if true;
+      allow create: if isValidId(attemptId) && isValidAttempt(incoming());
+      allow update: if false; // Immutable evaluation records
+      allow delete: if isValidId(attemptId);
+    }
+
+    // Weekly XP Leaderboard Collection
+    match /leaderboard/{entryId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(entryId) && isValidLeaderboardEntry(incoming());
+      allow delete: if isValidId(entryId);
+    }
+
+    // Health and connection testing document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Default deny for unspecified paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

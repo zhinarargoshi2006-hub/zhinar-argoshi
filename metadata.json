@@ -1,0 +1,10 @@
+{
+  "name": "kd voice language lab",
+  "description": "kd voice language lab: سیستەمی پێشکەوتووی فێربوونی زمان و تاقیکردنەوەی ئاستی قسەکردن بە دەنگ بە کوردی و ئینگلیزی (kd voice language lab - AI Voice Language Learning & Speaking Assessment)",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
