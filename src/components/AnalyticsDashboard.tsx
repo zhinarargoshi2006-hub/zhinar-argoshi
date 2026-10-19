@@ -86,37 +86,37 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
           <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
             <Mic className="w-4 h-4 text-emerald-400" />
-            <span>{isKu ? 'تەواوی هەوڵەکان' : 'Total Attempts'}</span>
+            <span>{isAr ? 'إجمالي المحاولات' : isKu ? 'تەواوی هەوڵەکان' : 'Total Attempts'}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">{totalAttempts || 12}</div>
-          <div className="text-[10px] text-emerald-400 mt-1 font-medium">{isKu ? 'تۆمارکراو لە هەور' : 'Synced to Firestore'}</div>
+          <div className="text-[10px] text-emerald-400 mt-1 font-medium">{isAr ? 'متزامن سحابياً' : isKu ? 'تۆمارکراو لە هەور' : 'Synced to Firestore'}</div>
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
           <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
             <TrendingUp className="w-4 h-4 text-cyan-400" />
-            <span>{isKu ? 'تێکڕای نمرە' : 'Average Score'}</span>
+            <span>{isAr ? 'متوسط الدرجات' : isKu ? 'تێکڕای نمرە' : 'Average Score'}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">{avgOverall}%</div>
-          <div className="text-[10px] text-cyan-400 mt-1 font-medium">{isKu ? 'ئاستی متمانەپێکراو' : 'High Consistency'}</div>
+          <div className="text-[10px] text-cyan-400 mt-1 font-medium">{isAr ? 'ثبات ممتاز' : isKu ? 'ئاستی متمانەپێکراو' : 'High Consistency'}</div>
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
           <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
             <Award className="w-4 h-4 text-amber-400" />
-            <span>{isKu ? 'ئاستی ئێستای CEFR' : 'Current CEFR'}</span>
+            <span>{isAr ? 'مستوى CEFR الحالي' : isKu ? 'ئاستی ئێستای CEFR' : 'Current CEFR'}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-amber-400">{currentCefr}</div>
-          <div className="text-[10px] text-slate-400 mt-1 font-medium">{isKu ? 'ستانداردی نێودەوڵەتی' : 'European Standard'}</div>
+          <div className="text-[10px] text-slate-400 mt-1 font-medium">{isAr ? 'المعيار الأوروبي المعتمد' : isKu ? 'ستانداردی نێودەوڵەتی' : 'European Standard'}</div>
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
           <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold mb-2">
             <Clock className="w-4 h-4 text-purple-400" />
-            <span>{isKu ? 'کاتی قسەکردن' : 'Minutes Spoken'}</span>
+            <span>{isAr ? 'دقائق التحدث' : isKu ? 'کاتی قسەکردن' : 'Minutes Spoken'}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">{totalMinutes || 24}m</div>
-          <div className="text-[10px] text-purple-400 mt-1 font-medium">{isKu ? 'مەشقی دەنگی ڕاستەقینە' : 'Real Vocal Practice'}</div>
+          <div className="text-[10px] text-purple-400 mt-1 font-medium">{isAr ? 'تدريب صوتي فعلي' : isKu ? 'مەشقی دەنگی ڕاستەقینە' : 'Real Vocal Practice'}</div>
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {isAr ? 'الأعمدة الأربعة لتقييم الصوت' : isKu ? 'چوار کۆڵەکەی نمرەی دەنگ' : '4 Pillars of Vocal Proficiency'}
                 </h3>
                 <span className="text-xs text-slate-400">
-                  {isKu ? 'وردبینی بێژەکردن، ڕەوانی، وشەکاری و ڕێزمان' : 'Acoustic metric breakdown'}
+                  {isAr ? 'تحليل تفصيلي لدقة النطق، الطلاقة، المفردات والقواعد' : isKu ? 'وردبینی بێژەکردن، ڕەوانی، وشەکاری و ڕێزمان' : 'Acoustic metric breakdown'}
                 </span>
               </div>
             </div>
@@ -142,7 +142,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                <span>{isKu ? 'بێژەکردن و مخارج الحروف (Pronunciation)' : 'Pronunciation & Phonemes'}</span>
+                <span>{isAr ? 'النطق ومخارج الحروف' : isKu ? 'بێژەکردن و دەربڕینی پیتەکان' : 'Pronunciation & Phonemes'}</span>
                 <span className="text-emerald-400 font-bold">{avgPronunciation}%</span>
               </div>
               <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
@@ -155,7 +155,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             <div>
               <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                <span>{isKu ? 'ڕەوانی و خێرایی دەنگ (Fluency)' : 'Fluency & Cadence'}</span>
+                <span>{isAr ? 'الطلاقة وسلاسة النطق' : isKu ? 'ڕەوانی و تەوژمی قسەکردن' : 'Fluency & Cadence'}</span>
                 <span className="text-teal-400 font-bold">{avgFluency}%</span>
               </div>
               <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
@@ -168,7 +168,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             <div>
               <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                <span>{isKu ? 'دەوڵەمەندیی وشەکاری (Vocabulary)' : 'Vocabulary & Lexicon'}</span>
+                <span>{isAr ? 'الثروة اللغوية والمفردات' : isKu ? 'دەوڵەمەندیی فەرهەنگ و وشەکان' : 'Vocabulary & Lexicon'}</span>
                 <span className="text-cyan-400 font-bold">{avgVocabulary}%</span>
               </div>
               <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
@@ -181,7 +181,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             <div>
               <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                <span>{isKu ? 'ڕێزمان و پەیوەستکردنی ڕستە (Grammar)' : 'Grammar & Syntax'}</span>
+                <span>{isAr ? 'القواعد وسلامة التراكيب' : isKu ? 'ڕێزمان و داڕشتنی دروستی ڕستە' : 'Grammar & Syntax'}</span>
                 <span className="text-indigo-400 font-bold">{avgGrammar}%</span>
               </div>
               <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
@@ -194,7 +194,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
 
-        {/* Mistake Bank (بانکی هەڵەکان) */}
+        {/* Mistake Bank */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -204,10 +204,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    {isAr ? 'بنك الكلمات التي تحتاج تدريباً' : isKu ? 'بانکی هەڵەکان (Mistake Bank)' : 'Targeted Mistake Bank'}
+                    {isAr ? 'بنك الكلمات التي تحتاج تدريباً' : isKu ? 'بانکی هەڵەکان' : 'Targeted Mistake Bank'}
                   </h3>
                   <span className="text-xs text-slate-400">
-                    {isKu ? 'ئەو وشە قورسانەی پێویستیان بە مەشقی زیاترە' : 'Words needing focused phonetics'}
+                    {isAr ? 'الكلمات التي تتطلب تركيزاً صوتياً إضافياً' : isKu ? 'ئەو وشە قورسانەی پێویستیان بە مەشقی زیاترە' : 'Words needing focused phonetics'}
                   </span>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     <p className="text-xs text-slate-400 mt-1">{m.tip}</p>
                   </div>
                   <span className="text-[10px] font-bold text-amber-400 shrink-0">
-                    {isKu ? 'مەشق بکە' : 'Drill'}
+                    {isAr ? 'تدرّب' : isKu ? 'مەشق بکە' : 'Drill'}
                   </span>
                 </div>
               ))}
@@ -235,15 +235,34 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
           <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs">
             <span className="text-slate-400">
-              {isKu ? 'سیستەم خۆکارانە وشە کێشەدارەکان دەدۆزێتەوە' : 'Auto-detected from speech tests'}
+              {isAr ? 'رصد تلقائي من واقع اختبارات النطق' : isKu ? 'سیستەم خۆکارانە وشە کێشەدارەکان دەدۆزێتەوە' : 'Auto-detected from speech tests'}
             </span>
-            <button
-              onClick={handleExportData}
-              className="text-cyan-400 hover:underline font-bold flex items-center gap-1"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isKu ? 'دابەزاندنی دۆسیە' : 'Export JSON'}</span>
-            </button>
+            <div className="flex items-center gap-3">
+              {onClearHistory && voiceHistory.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (onClearHistory) onClearHistory();
+                    try {
+                      localStorage.removeItem('kd_voice_assessment_history_v1');
+                      localStorage.removeItem('ku_voice_assessment_history_v1');
+                      localStorage.removeItem('argosh_voice_history');
+                    } catch (e) {}
+                  }}
+                  className="text-red-400 hover:text-red-300 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  title={isAr ? 'مسح كل المحاولات الصوتية' : isKu ? 'سڕینەوەی هەموو هەوڵە دەنگییەکان' : 'Clear all voice records'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'مسح السجل' : isKu ? 'سڕینەوەی مێژوو' : 'Clear History'}</span>
+                </button>
+              )}
+              <button
+                onClick={handleExportData}
+                className="text-cyan-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{isAr ? 'تصدير البيانات' : isKu ? 'دابەزاندنی دۆسیە' : 'Export JSON'}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -269,13 +288,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 {isAr ? 'أوسمة الإنجاز والتميز' : isKu ? 'میدالیا و دەستکەوتەکانی دەنگ' : 'Vocal Achievements & Badges'}
               </h3>
               <p className="text-xs text-slate-400">
-                {isKu ? '١٢ میدالیای ڕێزلێنان کە لەگەڵ مەشقکردندا دەکرێنەوە' : '12 unlockable milestone badges'}
+                {isAr ? '12 وسام استحقاق يُفتح مع استمرارية التدريب الصوتي' : isKu ? '١٢ میدالیای ڕێزلێنان کە لەگەڵ مەشقکردندا دەکرێنەوە' : '12 unlockable milestone badges'}
               </p>
             </div>
           </div>
 
           <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-            {badges.filter((b) => b.unlocked).length} / {badges.length} {isKu ? 'کراوەتەوە' : 'Unlocked'}
+            {badges.filter((b) => b.unlocked).length} / {badges.length} {isAr ? 'مفتوح' : isKu ? 'کراوەتەوە' : 'Unlocked'}
           </span>
         </div>
 
@@ -293,10 +312,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 {b.unlocked ? '🏆' : '🔒'}
               </div>
               <h4 className="text-xs font-bold text-white mb-1">
-                {isKu ? b.titleKu : b.titleEn}
+                {isAr ? b.titleAr || b.titleEn : isKu ? b.titleKu : b.titleEn}
               </h4>
               <p className="text-[10px] text-slate-400 leading-tight mb-3">
-                {isKu ? b.descriptionKu : b.descriptionEn}
+                {isAr ? b.descriptionAr || b.descriptionEn : isKu ? b.descriptionKu : b.descriptionEn}
               </p>
 
               <div className="w-full mt-auto">

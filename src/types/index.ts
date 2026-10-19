@@ -95,7 +95,7 @@ export interface Scenario {
   initialPromptKu: string;
   initialPromptEn: string;
   initialPromptAr?: string;
-  difficulty: 'A1-A2' | 'A2-B1' | 'B1-B2' | 'C1-C2';
+  difficulty: 'A1-A2' | 'A2-B1' | 'B1-B2' | 'B2-C1' | 'C1-C2';
   category?: 'hospital' | 'career' | 'academic' | 'travel' | 'daily';
   tutorRoleKu?: string;
   tutorRoleEn?: string;
@@ -138,6 +138,7 @@ export interface AchievementBadge {
   titleAr: string;
   descriptionKu: string;
   descriptionEn: string;
+  descriptionAr?: string;
   icon: string;
   unlocked: boolean;
   progress: number;
@@ -193,8 +194,12 @@ export interface MinimalPairItem {
 export interface TutorPersona {
   id: string;
   name: string;
+  nameKu?: string;
+  nameAr?: string;
+  nameEn?: string;
   roleKu: string;
   roleEn: string;
+  roleAr?: string;
   avatar: string;
   voiceName: string;
   tone: 'clinical' | 'friendly' | 'academic' | 'coach';

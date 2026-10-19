@@ -175,7 +175,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               {isAr
-                ? 'فحص الميكروفون، مخارج الحروف، وتقنية سێبەر (Shadowing)'
+                ? 'فحص الميكروفون، مخارج الحروف، وتقنية التظليل الصوتي'
                 : isKu
                 ? 'پشکنینی مایک، بێژەکردنی بڕگەکان، و ڕاهێنەری زمانی دەم'
                 : 'Microphone Diagnostics, Phonetic Anatomy & Shadowing Studio'}
@@ -225,7 +225,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
             <div className="flex items-center justify-between text-xs font-semibold mb-2">
               <span className="text-slate-300 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                {isKu ? 'ئاستی هێزی دەنگ لە مایکدا (Decibel Level):' : 'Microphone Input Volume:'}
+                {isAr ? 'مستوى التقاط الصوت في الميكروفون:' : isKu ? 'ئاستی هێزی دەنگ لە مایکدا:' : 'Microphone Input Volume:'}
               </span>
               <span
                 className={`font-mono text-xs px-2 py-0.5 rounded-full ${
@@ -238,10 +238,10 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
               >
                 {micVolume}% -{' '}
                 {micStatus === 'clipping'
-                  ? isKu ? 'دەنگ زۆر بەرزە (تۆزێ دوورکەوە)' : 'Too Loud / Clipping'
+                  ? isAr ? 'الصوت مرتفع جداً (ابتعد قليلاً)' : isKu ? 'دەنگ زۆر بەرزە (تۆزێ دوورکەوە)' : 'Too Loud / Clipping'
                   : micStatus === 'good'
-                  ? isKu ? 'ئاستی دەنگ تەواو و نایابە' : 'Optimal Voice Level'
-                  : isKu ? 'دەنگ کەمە (نزیکتر بە)' : 'Low Input'}
+                  ? isAr ? 'مستوى الصوت مثالي وممتاز' : isKu ? 'ئاستی دەنگ تەواو و نایابە' : 'Optimal Voice Level'
+                  : isAr ? 'الصوت منخفض (اقترب قليلاً)' : isKu ? 'دەنگ کەمە (نزیکتر بە)' : 'Low Input'}
               </span>
             </div>
             <div className="w-full h-3.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
@@ -303,7 +303,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
                 <div>
                   <div className="text-base font-black text-white">{activeMinimalPair.wordA}</div>
                   <div className="text-[11px] font-mono text-cyan-400">{activeMinimalPair.phoneticA}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{activeMinimalPair.meaningKuA}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{isAr ? (activeMinimalPair as any).meaningArA || activeMinimalPair.meaningEnA : isKu ? activeMinimalPair.meaningKuA : activeMinimalPair.meaningEnA}</div>
                 </div>
                 <button
                   onClick={() => playWordOrSentence(activeMinimalPair.wordA, 'en', 0.85, selectedVoice)}
@@ -318,7 +318,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
                 <div>
                   <div className="text-base font-black text-white">{activeMinimalPair.wordB}</div>
                   <div className="text-[11px] font-mono text-indigo-400">{activeMinimalPair.phoneticB}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{activeMinimalPair.meaningKuB}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{isAr ? (activeMinimalPair as any).meaningArB || activeMinimalPair.meaningEnB : isKu ? activeMinimalPair.meaningKuB : activeMinimalPair.meaningEnB}</div>
                 </div>
                 <button
                   onClick={() => playWordOrSentence(activeMinimalPair.wordB, 'en', 0.85, selectedVoice)}
@@ -350,7 +350,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
                     {isAr ? 'هندسة مخارج الحروف' : isKu ? 'جووڵەی زمان و ئەندامەکانی دەم' : 'Tongue & Mouth Anatomy'}
                   </h3>
                   <span className="text-[10px] text-slate-400">
-                    {isKu ? 'ڕێنمایی دەرهێنانی دەنگە قورسەکان' : 'Vocal Tract Positioning'}
+                    {isAr ? 'تحديد مواضع جهاز النطق ومخارج الأصوات' : isKu ? 'ڕێنمایی دەرهێنانی دەنگە قورسەکان' : 'Vocal Tract Positioning'}
                   </span>
                 </div>
               </div>
@@ -385,18 +385,21 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
                 {activeTongueGuide.mouthImage}
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                {isKu ? activeTongueGuide.instructionKu : activeTongueGuide.instructionEn}
+                {isAr ? (activeTongueGuide as any).instructionAr || activeTongueGuide.instructionEn : isKu ? activeTongueGuide.instructionKu : activeTongueGuide.instructionEn}
               </p>
               <div className="text-[11px] text-amber-300/90 pt-1 border-t border-slate-900">
-                <span className="font-bold">{isKu ? 'هەڵەی باو: ' : 'Common mistake: '}</span>
-                {activeTongueGuide.commonMistake}
+                <span className="font-bold">{isAr ? 'الخطأ الشائع: ' : isKu ? 'هەڵەی باو: ' : 'Common mistake: '}</span>
+                {isAr ? (activeTongueGuide as any).commonMistakeAr || activeTongueGuide.commonMistake : isKu ? (activeTongueGuide as any).commonMistakeKu || activeTongueGuide.commonMistake : activeTongueGuide.commonMistake}
               </div>
             </div>
           </div>
 
           <div className="mt-4 flex items-center justify-between pt-2">
-            <span className="text-[11px] text-slate-400 truncate">
-              {isAr ? 'مثال: ' : isKu ? 'نموونە: ' : 'Sample: '} <strong className="text-white">{activeTongueGuide.sampleWord}</strong>
+            <span className="text-[11px] text-slate-400 truncate flex items-center gap-1">
+              <span>{isAr ? 'مثال: ' : isKu ? 'نموونە: ' : 'Sample: '}</span>
+              <span dir="ltr" style={{ direction: 'ltr' }} className="text-white font-bold force-ltr">
+                "{activeTongueGuide.sampleWord}"
+              </span>
             </span>
             <button
               onClick={() => playWordOrSentence(activeTongueGuide.sampleWord, 'en', 0.8, selectedVoice)}
@@ -488,7 +491,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
 
           <div className="mt-4 text-[10px] text-slate-500 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <span>{isKu ? 'کرتە لە هەر بڕگەیەک بکە بۆ بیستنی دەنگەکەی بە تەنیا' : 'Tap any syllable to hear isolated phoneme'}</span>
+            <span>{isAr ? 'انقر على أي مقطع للاستماع لصوته منفرداً' : isKu ? 'کرتە لە هەر بڕگەیەک بکە بۆ بیستنی دەنگەکەی بە تەنیا' : 'Tap any syllable to hear isolated phoneme'}</span>
           </div>
         </div>
       </div>
@@ -502,11 +505,13 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                {isAr ? 'تقنية التظليل الصوتي (Shadowing Practice)' : isKu ? 'تەکنیکی سێبەر و هاوئاوازی دەنگ (Shadowing)' : 'Speech Shadowing Simulator'}
+                {isAr ? 'تقنية التظليل الصوتي ومحاكاة النطق' : isKu ? 'تەکنیکی سێبەر و هاوئاوازی دەنگ' : 'Speech Shadowing Simulator'}
               </h3>
               <p className="text-xs text-slate-400">
-                {isKu
-                  ? 'گوێگرتن لە کەسی ڕەسەن و دووبارەکردنەوەی لە یەک کاتدا بە دواکەوتنی نیو چرکە بۆ توانەوەی ئەکسێنت'
+                {isAr
+                  ? 'الاستماع لصوت ناطق أصيل والتحدث معه بالتزامن بفارق زمني بسيط لاكتساب طلاقة التعبير.'
+                  : isKu
+                  ? 'گوێگرتن لە کەسی ڕەسەن و دووبارەکردنەوەی لە یەک کاتدا بۆ توانەوەی ئەکسێنت'
                   : 'Listen to native voice and speak simultaneously with a half-second delay to internalize native cadence.'}
               </p>
             </div>
@@ -517,7 +522,7 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs sm:text-sm hover:opacity-95 active:scale-95 transition-all"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>{isKu ? 'دەستپێکردنی ڕاهێنان' : 'Start Shadowing'}</span>
+            <span>{isAr ? 'بدء تدريب التظليل' : isKu ? 'دەستپێکردنی ڕاهێنان' : 'Start Shadowing'}</span>
           </button>
         </div>
 
@@ -528,22 +533,26 @@ export const AudioToolsStudio: React.FC<AudioToolsStudioProps> = ({
               <div className="text-center">
                 <div className="text-4xl font-black text-amber-400 animate-bounce">{shadowingCountdown}</div>
                 <div className="text-xs text-slate-300 font-semibold mt-1">
-                  {isKu ? 'ئامادەبە بۆ هاوبێژی لەگەڵ دەنگ...' : 'Get ready to shadow...'}
+                  {isAr ? 'استعد للتحدث بالمحاكاة مع الصوت...' : isKu ? 'ئامادەبە بۆ هاوبێژی لەگەڵ دەنگ...' : 'Get ready to shadow...'}
                 </div>
               </div>
             </div>
           )}
-          <div className="text-sm sm:text-base font-bold text-slate-100 leading-relaxed mb-3">
+          <div
+            dir="ltr"
+            style={{ direction: 'ltr', textAlign: 'left' }}
+            className="text-sm sm:text-base font-bold text-slate-100 leading-relaxed mb-3 force-ltr text-left"
+          >
             "{shadowingText}"
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 pt-2 border-t border-slate-900">
-            <span>{isKu ? 'ڕستە نموونەیی بۆ مەشقی نەخۆشخانە' : 'Clinical Shadowing Sentence'}</span>
+            <span>{isAr ? 'جملة سريرية لمحاكاة النطق' : isKu ? 'ڕستە نموونەیی بۆ مەشقی نەخۆشخانە' : 'Clinical Shadowing Sentence'}</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShadowingText('The electrocardiogram confirms normal cardiac sinus rhythm with zero abnormalities.')}
                 className="text-[11px] text-amber-400 hover:underline"
               >
-                {isKu ? 'ڕستەی تر' : 'Next Sentence'}
+                {isAr ? 'الجملة التالية' : isKu ? 'ڕستەی تر' : 'Next Sentence'}
               </button>
             </div>
           </div>

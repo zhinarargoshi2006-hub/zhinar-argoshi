@@ -49,108 +49,134 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
   const userXp = Math.max(150, (userAttemptsCount * 125) + Math.round((averageScore || 75) * 4));
   const currentUserId = getPersistentUserId();
 
-  // Curated community peers
-  const initialPeers: LeaderboardEntry[] = [
+  // Curated community peers with clean localized names (no language mixing)
+  const peerList = [
     {
       userId: 'usr_peer_1',
-      displayName: 'ئاسۆ کەمال (Aso K.)',
+      nameKu: 'ئاسۆ کەمال',
+      nameAr: 'آسو كمال',
+      nameEn: 'Aso Kamal',
       weeklyXp: 1840,
       cefrLevel: 'C1',
       avatar: '👨‍💼',
       streakDays: 7,
       language: 'en',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_2',
-      displayName: 'د. لانە مەحموود (Dr. Lana)',
+      nameKu: 'د. لانە مەحموود',
+      nameAr: 'د. لانة محمود',
+      nameEn: 'Dr. Lana Mahmood',
       weeklyXp: 1620,
       cefrLevel: 'C1',
       avatar: '👩‍⚕️',
       streakDays: 6,
       language: 'en',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_3',
-      displayName: 'شاکار ڕەحمان (Shakar R.)',
+      nameKu: 'شاکار ڕەحمان',
+      nameAr: 'شاكار رحمن',
+      nameEn: 'Shakar Rahman',
       weeklyXp: 1450,
       cefrLevel: 'B2',
       avatar: '🎧',
       streakDays: 5,
       language: 'en',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_4',
-      displayName: 'ڕێژوان ئەحمەد (Rezhwan)',
+      nameKu: 'ڕێژوان ئەحمەد',
+      nameAr: 'ريجوان أحمد',
+      nameEn: 'Rezhwan Ahmed',
       weeklyXp: 1290,
       cefrLevel: 'B2',
       avatar: '🌟',
       streakDays: 4,
       language: 'ku',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_5',
-      displayName: 'سارا تاهیر (Sara T.)',
+      nameKu: 'سارا تاهیر',
+      nameAr: 'سارة طاهر',
+      nameEn: 'Sara Tahir',
       weeklyXp: 1120,
       cefrLevel: 'B2',
       avatar: '🎙️',
       streakDays: 4,
       language: 'ar',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_6',
-      displayName: 'کۆسار عەلی (Kosar A.)',
+      nameKu: 'کۆسار عەلی',
+      nameAr: 'كوسار علي',
+      nameEn: 'Kosar Ali',
       weeklyXp: 980,
       cefrLevel: 'B1',
       avatar: '🚀',
       streakDays: 3,
       language: 'en',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_7',
-      displayName: 'دەریا حوسێن (Darya H.)',
+      nameKu: 'دەریا حوسێن',
+      nameAr: 'دريا حسين',
+      nameEn: 'Darya Hussein',
       weeklyXp: 860,
       cefrLevel: 'B1',
       avatar: '✨',
       streakDays: 3,
       language: 'en',
-      updatedAt: new Date().toISOString(),
     },
     {
       userId: 'usr_peer_8',
-      displayName: 'کامەران بەکر (Kamaran B.)',
+      nameKu: 'کامەران بەکر',
+      nameAr: 'كامران بكر',
+      nameEn: 'Kamaran Bakr',
       weeklyXp: 740,
       cefrLevel: 'A2',
       avatar: '🎯',
       streakDays: 2,
       language: 'ku',
-      updatedAt: new Date().toISOString(),
     },
   ];
 
+  const initialPeers: LeaderboardEntry[] = peerList.map((p) => ({
+    userId: p.userId,
+    displayName: isAr ? p.nameAr : isKu ? p.nameKu : p.nameEn,
+    weeklyXp: p.weeklyXp,
+    cefrLevel: p.cefrLevel,
+    avatar: p.avatar,
+    streakDays: p.streakDays,
+    language: p.language,
+    updatedAt: new Date().toISOString(),
+  }));
+
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // Default clean self name
+  const defaultSelfName = isAr ? 'أنت' : isKu ? 'تۆ' : 'You';
 
   // Load saved name
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('kd_voice_display_name') || 'من (You)';
-      setUserName(saved);
+      const saved = localStorage.getItem('kd_voice_display_name');
+      if (saved && saved !== 'من (You)' && saved !== 'من' && saved !== 'You' && saved !== 'تۆ' && saved !== 'أنت') {
+        setUserName(saved);
+      } else {
+        setUserName(defaultSelfName);
+      }
     } catch (e) {
-      setUserName('من (You)');
+      setUserName(defaultSelfName);
     }
-  }, []);
+  }, [uiLang]);
 
   // Sync and fetch from Firestore
   const loadLeaderboardData = async () => {
     setIsLoading(true);
     try {
       // 1. Sync current user's entry to Firestore
-      const userDisplayName = userName || localStorage.getItem('kd_voice_display_name') || 'من (You)';
+      const userDisplayName = (userName && userName !== 'من (You)') ? userName : defaultSelfName;
       await syncLeaderboardEntry({
         userId: currentUserId,
         displayName: userDisplayName,
@@ -164,19 +190,21 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
       // 2. Fetch live data from Firestore
       const remote = await fetchWeeklyLeaderboard(25);
 
-      // Merge remote entries with curated peers to ensure a full lively community list
+      // Merge remote entries with curated peers cleanly without duplicates
       const combinedMap = new Map<string, LeaderboardEntry>();
       initialPeers.forEach((p) => combinedMap.set(p.userId, p));
 
-      // Add remote records
+      // Add remote records (ignoring any duplicates of current user)
       remote.forEach((r) => {
-        combinedMap.set(r.userId, {
-          ...r,
-          isCurrentUser: r.userId === currentUserId,
-        });
+        if (r.userId && r.userId !== currentUserId) {
+          combinedMap.set(r.userId, {
+            ...r,
+            isCurrentUser: false,
+          });
+        }
       });
 
-      // Ensure current user is present
+      // Ensure current user is present once
       combinedMap.set(currentUserId, {
         userId: currentUserId,
         displayName: userDisplayName,
@@ -203,7 +231,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
       // Fallback
       const userEntry: LeaderboardEntry = {
         userId: currentUserId,
-        displayName: userName || 'من (You)',
+        displayName: (userName && userName !== 'من (You)') ? userName : defaultSelfName,
         weeklyXp: userXp,
         cefrLevel: currentCefr,
         avatar: '🎙️',
@@ -212,7 +240,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
         updatedAt: new Date().toISOString(),
         isCurrentUser: true,
       };
-      const sorted = [...initialPeers, userEntry].sort((a, b) => b.weeklyXp - a.weeklyXp);
+      const sorted = [...initialPeers.filter((p) => p.userId !== currentUserId), userEntry].sort((a, b) => b.weeklyXp - a.weeklyXp);
       const ranked = sorted.map((item, idx) => ({ ...item, rank: idx + 1 }));
       setLeaderboard(ranked);
     } finally {
@@ -256,7 +284,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
-                {isAr ? 'لوحة المتصدرين الأسبوعية (Weekly XP)' : isKu ? 'خشتەی پێشەنگەکانی هەفتە (Weekly XP)' : 'Weekly XP Leaderboard'}
+                {isAr ? 'لوحة المتصدرين الأسبوعية' : isKu ? 'خشتەی پێشەنگەکانی هەفتە' : 'Weekly XP Leaderboard'}
               </h3>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase">
                 {isAr ? 'مجتمع نشط ومباشر' : isKu ? 'کۆمەڵگەی زیندوو' : 'Live Community'}
@@ -266,7 +294,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
               {isAr
                 ? 'قارن نشاطك الصوتي ونقاط خبرتك الأسبوعية مع زملائك من المتعلمين حول العالم.'
                 : isKu
-                ? 'بەراوردی چالاکی و خاڵەکانی قسەکردنت لەگەڵ فێرخوازانی تری کوردستان و جیهان بکە.'
+                ? 'بەراوردی چالاکی و خاڵەکانی قسەکردنت لەگەڵ فێرخوازانی تر بکە.'
                 : 'See how your weekly speaking practice and XP compare to fellow learners.'}
             </p>
           </div>
@@ -350,7 +378,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
                 {isAr
                   ? `للوصول للمرتبة التالية (#${currentUserRank - 1}):`
                   : isKu
-                  ? `بۆ پلەی پێشەوە (Rank #${currentUserRank - 1}):`
+                  ? `بۆ پلەی پێشەوە (#${currentUserRank - 1}):`
                   : `To Next Rank (#${currentUserRank - 1}):`}
               </div>
               <div className="text-emerald-400 font-bold flex items-center gap-1 mt-0.5 sm:justify-end">
@@ -372,7 +400,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
               : 'bg-slate-950 text-slate-400 border-slate-900 hover:text-slate-200'
           }`}
         >
-          {isAr ? 'جميع المتعلمين (أفضل 10)' : isKu ? 'هەموو فێرخوازان (Top 10)' : 'All Community'}
+          {isAr ? 'جميع المتعلمين (أفضل 10)' : isKu ? 'هەموو فێرخوازان (١٠ی سەرەکی)' : 'All Community'}
         </button>
 
         <button
@@ -384,7 +412,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
           }`}
         >
           <Crown className="w-3.5 h-3.5 text-amber-400" />
-          <span>{isAr ? 'الدوري الماسي (أفضل 3)' : isKu ? 'خولی ئەڵماس (Top 3)' : 'Diamond Tier'}</span>
+          <span>{isAr ? 'الدوري الماسي (أفضل 3)' : isKu ? 'خولی ئەڵماس (٣ی سەرەکی)' : 'Diamond Tier'}</span>
         </button>
 
         <button
@@ -396,7 +424,7 @@ export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({
           }`}
         >
           <Shield className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{isAr ? 'دوري الزمرد (4 - 10)' : isKu ? 'خولی زمڕوود (4 - 10)' : 'Emerald Tier'}</span>
+          <span>{isAr ? 'دوري الزمرد (4 - 10)' : isKu ? 'خولی زمڕوود (٤ - ١٠)' : 'Emerald Tier'}</span>
         </button>
       </div>
 

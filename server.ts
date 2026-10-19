@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import https from 'https';
 import { fileURLToPath } from 'url';
-import { get100TestStepsForLanguage } from './src/data/speakingStages100.ts';
+import { get1000TestStepsForLanguage } from './src/data/speakingStages1000.ts';
 import type { TargetLanguage } from './src/types/index.ts';
 
 dotenv.config();
@@ -773,7 +773,347 @@ function generateFallbackTutorReply(scenario: string, targetLanguage: string, us
     }
   }
 
-  // General scenarios fallback with dynamic cycle
+  // Category Checkers
+  const isCareer =
+    scenario.toLowerCase().includes('career') ||
+    scenario.toLowerCase().includes('job') ||
+    scenario.toLowerCase().includes('interview') ||
+    scenario.toLowerCase().includes('business') ||
+    scenario.toLowerCase().includes('negotiation');
+
+  const isAcademic =
+    scenario.toLowerCase().includes('academic') ||
+    scenario.toLowerCase().includes('seminar') ||
+    scenario.toLowerCase().includes('university') ||
+    scenario.toLowerCase().includes('research') ||
+    scenario.toLowerCase().includes('thesis');
+
+  const isDaily =
+    scenario.toLowerCase().includes('daily') ||
+    scenario.toLowerCase().includes('rent') ||
+    scenario.toLowerCase().includes('apartment') ||
+    scenario.toLowerCase().includes('airport') ||
+    scenario.toLowerCase().includes('travel') ||
+    scenario.toLowerCase().includes('tour') ||
+    scenario.toLowerCase().includes('coffee') ||
+    scenario.toLowerCase().includes('support');
+
+  // 1. BUSINESS & CAREER CATEGORY
+  if (isCareer) {
+    if (targetLanguage === 'ar') {
+      const careerBankAr = [
+        {
+          replyText: 'أهلاً بك! استعراضك لخبراتك المهنية والقيادية مقنع وواضح للغاية. في بيئات الأعمال المتقدمة، كيف تدير التوازن بين المواعيد النهائية لتسليم المشاريع وتوقعات الإدارة التنفيذية؟',
+          translation: 'بەخێربێیت! ڕوونکردنەوەی ئەزموونی پیشەییت زۆر متمانەپێکراو و ڕوونە. لە کاردا چۆن باڵانس لە نێوان کاتی ڕادەستکردنی پڕۆژە و چاوەڕوانیی بەڕێوەبەرایەتیدا ڕادەگریت؟',
+          phonetic: 'Ahlan bik! Isti\'raduka likhibaratik...',
+          replies: [
+            { text: 'أعتمد على إدارة الأولويات وتطبيق منهجية Agile لضمان كفاءة التسليم.', translation: 'پشت بە پێشینەدان بە کارەکان و میتۆدی Agile دەبەستم بۆ خێرایی و ڕێکی.' },
+            { text: 'أعقد اجتماعات متابعة دورية وشفافة مع الإدارة التنفيذية لتحديث التقدم.', translation: 'کۆبوونەوەی هەفتانەی شەفاف لەگەڵ سەرکردایەتی دەکەم بۆ زانینی بەرەوپێشچوون.' },
+            { text: 'ما هي مؤشرات النجاح الأكثر أهمية لهذا المنصب الوظيفي؟', translation: 'گرنگترین نیشاندەرەکانی سەرکەوتن بۆ ئەم پۆستە چییە؟' },
+          ],
+        },
+        {
+          replyText: 'طرح استراتيجي متميز يدل على نضج إداري عالٍ. بالنظر إلى خطتنا للتوسع التجاري، ما هي مؤشرات الأداء الرئيسية (KPIs) التي تقترح تطبيقها لقياس كفاءة الفريق؟',
+          translation: 'بیرۆکەیەکی ستراتیژیی نایابە. بە لەبەرچاوگرتنی فراوانکردنی بازرگانی، چ پێوەرێکی سەرەکی (KPIs) پێشنیار دەکەیت بۆ پێوانەکردنی توانای تیم؟',
+          phonetic: 'Tarhun istrateejiyyun mutamayyiz...',
+          replies: [
+            { text: 'أقترح قياس معدل سرعة التسليم (Velocity) ومستوى رضا العملاء النهائي.', translation: 'پێشنیار دەکەم خێرایی گەیاندن و ڕەزامەندی کڕیار بپێوین.' },
+            { text: 'يجب ربط المكافآت بتحقيق الأهداف ربع السنوية ومعدل العائد على الاستثمار.', translation: 'دەبێت پاداشتەکان بە ئامانجە وەرزییەکان و قازانجی وەبەرهێنانەوە ببەسترێتەوە.' },
+            { text: 'كيف تقيمون التحديات التنافسية الحالية في السوق الإقليمي؟', translation: 'ئاستەنگە ڕکابەرییەکانی ئێستای بازاڕ چۆن هەڵدەسەنگێنن؟' },
+          ],
+        },
+        {
+          replyText: 'بخصوص مفاوضات العقد التجاري وشروط الشراكة، هل يمكننا الاتفاق على جدولة المدفوعات وفق إنجاز المراحل المحددة لضمان مصلحة الطرفين؟',
+          translation: 'دەربارەی دانوستانی گرێبەست، ئایا دەتوانین لەسەر شێوازی پارەدان بەپێی قۆناغە تەواوکراوەکان ڕێکبکەوین بۆ پاراستنی بەرژەوەندی هەردوولا؟',
+          phonetic: 'Bikhusous mufawadat al-\'aqd...',
+          replies: [
+            { text: 'نعم، نرحب بجدولة الدفعات على ثلاث مراحل مرتبطة بالتسليم الفعلي.', translation: 'بەڵێ، پێشوازی لە دابەشکردنی پارە بەسەر ٣ قۆناغی ڕادەستکردندا دەکەین.' },
+            { text: 'نحتاج إلى دفعة أولية لتغطية التكاليف التشغيلية قبل البدء.', translation: 'پێویستمان بە بڕە پارەی یەکەمە بۆ خەرجییە سەرەتاییەکان پێش دەستپێکردن.' },
+            { text: 'دعنا نراجع بنود الضمان ومستوى الخدمة المتفق عليه (SLA).', translation: 'با پێداچوونەوە بە بەندەکانی گرەنتی و ئاستی خزمەتگوزاری (SLA)دا بکەین.' },
+          ],
+        },
+      ];
+      const pick = careerBankAr[turnIndex % careerBankAr.length];
+      return {
+        replyText: turnIndex >= careerBankAr.length ? `استكمالاً لمناقشتنا المهنية: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else if (targetLanguage === 'ku') {
+      const careerBankKu = [
+        {
+          replyText: 'دەستخۆش بۆ ڕوونکردنەوەی ئەزموونی پیشەییت. لە بەڕێوەبردنی پڕۆژە و بازرگانیدا، سەرکردایەتی تیمی هاوبەش زۆر گرنگە. چۆن کێشەی نێوان وادەی تەواوبوونی پڕۆژە و چاوەڕوانییەکانی خاوەنکار چارەسەر دەکەیت؟',
+          translation: 'Well articulated regarding your career path. In corporate leadership, cross-functional synergy is essential. How do you balance tight delivery milestones against client expectations?',
+          phonetic: 'Dastxosh bo runkrdanaway azmuni pisheyit...',
+          replies: [
+            { text: 'بە دانانی پلانێکی ڕوون و پێشینەدان بە کارە گرنگەکان دەتوانم کاتەکە ڕێکبخەم.', translation: 'By establishing clear priorities and sprint goals, I keep timelines on track.' },
+            { text: 'پەیوەندیی بەردەوام و شەفاف لەگەڵ کڕیار ڕێگە لە هەڵەتێگەیشتن دەگرێت.', translation: 'Continuous transparent communication with stakeholders prevents delays.' },
+            { text: 'گرنگترین ئەو لێهاتووییانەی بەڕێزتان بەدوایدا دەگەڕێن بۆ ئەم کارە چییە؟', translation: 'What are the most crucial competencies you seek for this role?' },
+          ],
+        },
+        {
+          replyText: 'ئەمە نیشانەی تێگەیشتنی قووڵی بازرگانییە. لە پلانە ستراتیژییەکانتدا بۆ چارەکی داهاتوو، چ پێوەرێکی سەرەکی (KPIs) دادەنێیت بۆ پێوانەکردنی سەرکەوتن و خێرایی کارکردن؟',
+          translation: 'That demonstrates strong business acumen. Looking at your quarterly roadmap, what core performance indicators (KPIs) do you prioritize to track velocity and outcomes?',
+          phonetic: 'Ama nishanai tegashtni quli bazarganiya...',
+          replies: [
+            { text: 'پێوانەکردنی ڕەزامەندی کڕیاران و خێرایی ڕادەستکردنی پڕۆژە پێشینەم دەبێت.', translation: 'Customer satisfaction metrics and delivery velocity are my top metrics.' },
+            { text: 'کەمکردنەوەی تێچوونی ناپێویست و بەرزکردنەوەی بەرهەمهێنان لە ئامانجم دەبێت.', translation: 'Minimizing overhead waste and boosting productivity are primary goals.' },
+            { text: 'ڕکابەرییەکانی ئێستای بازاڕ لە چ ئاستێکدا دەبینن؟', translation: 'How do you view current competitive market pressures?' },
+          ],
+        },
+        {
+          replyText: 'دەربارەی مەرجەکانی گرێبەستی بازرگانی و بودجە، پێداچوونەوەمان بۆ پڕۆپۆزەڵەکەتان کرد. ئایا دەکرێت هەندێک لە بەندەکان و شێوازی پارەدان بەپێی قۆناغەکانی ڕادەستکردن ڕێکبخەین؟',
+          translation: 'Regarding commercial agreement terms and budget, we reviewed your proposal. Are you open to milestone-based payout scheduling to align both parties?',
+          phonetic: 'Darbarey marjakani grebasti bazargani...',
+          replies: [
+            { text: 'بەڵێ، پێشوازی لە دابەشکردنی پارە بەسەر ٣ قۆناغی سەرەکیدا دەکەین.', translation: 'Yes, we welcome structuring payments across three key deliverables.' },
+            { text: 'بۆ دەستپێکردن پێویستمان بە پێشەکییەکە بۆ دابینکردنی کەرەستە و تیمەکان.', translation: 'An initial advance is required to secure operational resources.' },
+            { text: 'با پێداچوونەوە بە گەرەنتییەکانی خزمەتگوزاری و پشتگیرییدا بکەین.', translation: 'Let us finalize the SLA service warranties and long-term support.' },
+          ],
+        },
+      ];
+      const pick = careerBankKu[turnIndex % careerBankKu.length];
+      return {
+        replyText: turnIndex >= careerBankKu.length ? `بەردەوام دەبین لە گفتوگۆی کار: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else {
+      const careerBankEn = [
+        {
+          replyText: 'Thank you for detailing your professional experience. In high-stakes corporate environments, cross-functional collaboration is paramount. How do you resolve conflicts between engineering milestones and stakeholder expectations?',
+          translation: 'سوپاس بۆ خستنەڕووی ئەزموونی پیشەییت. لە کۆمپانیا گەورەکاندا هاوکاری تیمەکان بنەڕەتییە. چۆن کێشەی نێوان کاتی تەواوبوونی پڕۆژە و چاوەڕوانی خاوەنکار چارەسەر دەکەیت؟',
+          phonetic: 'θæŋk juː fɔːr dɪˈteɪlɪŋ jʊər prəˈfɛʃənl...',
+          replies: [
+            { text: 'I leverage structured Agile sprints and transparent prioritization frameworks.', translation: 'من میتۆدۆلۆژیای Agile و پلاندانانی ڕوون بەکاردەهێنم بۆ سەرکەوتن.' },
+            { text: 'Clear stakeholder visibility and proactive updates prevent misalignment.', translation: 'پەیوەندی ڕوون و بەردەوام لەگەڵ بەشداربووان ڕێگە لە هەڵە دەگرێت.' },
+            { text: 'What are the defining performance indicators for leadership in this role?', translation: 'نیشاندەرە سەرەکییەکانی سەرکردایەتی بۆ ئەم پۆستە چییە؟' },
+          ],
+        },
+        {
+          replyText: 'That demonstrates strong leadership maturity. Looking at our upcoming quarterly expansion, what specific performance metrics or KPIs would you institute to measure team velocity?',
+          translation: 'ئەمە پێگەیشتووییەکی بەرزی سەرکردایەتی نیشان دەدات. لە پلانی چارەکی داهاتوودا، چ پێوەرێکی KPIs پێشنیار دەکەیت بۆ پێوانەکردنی خێرایی تیم؟',
+          phonetic: 'ðæt ˈdɛmənstreɪts strɒŋ ˈliːdərʃɪp...',
+          replies: [
+            { text: 'I track cycle time, release frequency, and net promoter scores (NPS).', translation: 'خێرایی کارکردن، ژمارەی وەشانە نوێیەکان و ڕەزامەندی کڕیار دەپێوم.' },
+            { text: 'Aligning individual deliverables with overall enterprise ARR growth is key.', translation: 'پەیوەستکردنی کارەکان بە گەشەی داهاتی ساڵانەی کۆمپانیا بنەڕەتییە.' },
+            { text: 'How do you view our current product positioning in international markets?', translation: 'پێگەی ئێستای بەرهەمەکانمان لە بازاڕە جیهانییەکاندا چۆن هەڵدەسەنگێنن؟' },
+          ],
+        },
+        {
+          replyText: 'Regarding our contract negotiations, we are reviewing your SLA terms and delivery timeline. Are you open to adjusting the retainer structure based on achievement of performance benchmarks?',
+          translation: 'دەربارەی دانوستانی گرێبەست، سەیری مەرجەکان و کاتەکانی کارەکە دەکەین. ئایا ئامادەی ڕێکخستنی شێوازی پارەدان بەپێی گەیشتن بە ئامانجەکان؟',
+          phonetic: 'rɪˈɡɑːrdɪŋ ˈaʊər ˈkɒntrækt nɪˌɡoʊʃiˈeɪʃənz...',
+          replies: [
+            { text: 'We are completely open to milestone-contingent milestone disbursements.', translation: 'ئێمە تەواو ئامادەین بۆ شێوازی پارەدان بەپێی قۆناغە بەدەستهاتووەکان.' },
+            { text: 'An upfront operational deposit is required before initial sprint deployment.', translation: 'بڕە پارەیەکی سەرەتایی پێویستە بۆ دەستپێکردنی قۆناغی یەکەم.' },
+            { text: 'Let us finalize the contractual scope and indemnity provisions.', translation: 'با لەسەر سنووری گرێبەستەکە و مەرجەکانی گرەنتی ڕێکبکەوین.' },
+          ],
+        },
+      ];
+      const pick = careerBankEn[turnIndex % careerBankEn.length];
+      return {
+        replyText: turnIndex >= careerBankEn.length ? `Continuing our professional business dialogue: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    }
+  }
+
+  // 2. ACADEMIC & RESEARCH CATEGORY
+  if (isAcademic) {
+    if (targetLanguage === 'ar') {
+      const academicBankAr = [
+        {
+          replyText: 'أطروحتك البحثية تتناول إشكالية علمية بالغة الأهمية. هل يمكنك توضيح العينة الإحصائية المستخدمة وكيف تم ضبط المتغيرات الدخيلة أثناء جمع البيانات الميدانية؟',
+          translation: 'توێژینەوەکەت دەست دەخاتە سەر کەلێنێکی زانستیی گرنگ. دەتوانیت باسی چۆنیەتی دیاریکردنی نموونەکان و کۆنترۆڵکردنی هۆکارە لاوەکییەکان بکەیت؟',
+          phonetic: 'Utrouhatuka al-bahthiyyah...',
+          replies: [
+            { text: 'اعتمدنا على عينة عشوائية طبقية لضمان التمثيل الدقيق لمجتمع الدراسة.', translation: 'پشتمان بە نموونەیەکی بەهەڕەمەکی پۆلێنکراو بەست بۆ نوێنەرایەتی دروست.' },
+            { text: 'تم استخدام تحليل الانحدار المتعدد لعزل المتغيرات المربكة إحصائياً.', translation: 'شیکاری فرە-لاری بەکارهێنرا بۆ جیاکردنەوەی گۆڕاوە لاوەکییەکان.' },
+            { text: 'ما هي معايير الصدق والثبات التي توصون بتطبيقها هنا؟', translation: 'چ پێوەرێکی ڕاستگۆیی و جێگیری پێشنیار دەکەیت لێرەدا؟' },
+          ],
+        },
+        {
+          replyText: 'تأصيل منهجي رصين ودقيق. كيف تتقاطع النتائج الإحصائية التي توصلتم إليها مع النظريات الأكاديمية السائدة في المجلات العلمية المحكمة؟',
+          translation: 'بەرگرییەکی زانستیی زۆر بەهێزە. دەرەنجامە ئامارییەکانتان چۆن لەگەڵ تیۆرییە باوەکانی گۆڤارە زانستییەکاندا یەکدەگرنەوە؟',
+          phonetic: 'Ta\'seel manhajiyyun raseen...',
+          replies: [
+            { text: 'تدعم بياناتنا النموذج النظري الحديث بينما تتحدى الفرضيات الكلاسيكية القديمة.', translation: 'داتاکانمان پشتگیری لە مۆدێلی نوێ دەکەن بەڵام گریمانە کۆنەکان ڕەتدەکەنەوە.' },
+            { text: 'هناك دلالة إحصائية قوية (p < 0.01) تثبت صحة الفرضية البديلة.', translation: 'بەڵگەیەکی بەهێزی ئاماری هەیە کە ڕاستیی گریمانەکە دەسەلمێنێت.' },
+            { text: 'هل ترون ضرورة لتوسيع حجم العينة في الدراسات اللاحقة؟', translation: 'ئایا پێتان وایە پێویستە قەبارەی نموونە لە توێژینەوەی داهاتوودا فراوان بکرێت؟' },
+          ],
+        },
+      ];
+      const pick = academicBankAr[turnIndex % academicBankAr.length];
+      return {
+        replyText: turnIndex >= academicBankAr.length ? `استكمالاً لمناقشتنا الأكاديمية: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else if (targetLanguage === 'ku') {
+      const academicBankKu = [
+        {
+          replyText: 'توێژینەوەکەت دەست دەخاتە سەر کەلێنێکی زانستیی گرنگ. دەتوانیت وردەکاری زیاترمان پێ بدەیت لەسەر چۆنیەتی دیاریکردنی نموونەی لێکۆڵینەوە و کۆنترۆڵکردنی هۆکارە لاوەکییەکان؟',
+          translation: 'Your thesis tackles a pivotal gap in scholarly literature. Could you outline your sampling methodology and how confounding variables were controlled?',
+          phonetic: 'Twezhinawakatt dast daxata sar keleneki zansti...',
+          replies: [
+            { text: 'پشتمان بە کۆکردنەوەی داتای مەیدانی بەست بە بەکارهێنانی فۆرمی ڕاپرسی باوەڕپێکراو.', translation: 'We utilized empirical field surveys using validated sampling instruments.' },
+            { text: 'لە ڕێگەی بەرنامەی SPSSەوە شیکاری ئاماریی وردمان بۆ داتاکان ئەنجامدا.', translation: 'We conducted rigorous multi-variate statistical analysis via SPSS.' },
+            { text: 'ڕای بەڕێزتان چییە لەسەر دروستی گریمانە سەرەکییەکەی ئێمە؟', translation: 'What is your evaluation of our primary hypothesis validity?' },
+          ],
+        },
+        {
+          replyText: 'ئەمە میتۆدۆلۆژیایەکی بەهێزە. دەرەنجامە ئامارییەکانی توێژینەوەکەت بە چ شێوەیەک جیاوازن لەو مۆدێلە باوانەی کە لە گۆڤارە زانستییە نێودەوڵەتییەکاندا بڵاوکراونەتەوە؟',
+          translation: 'That is a robust methodological rationale. How do your empirical discoveries challenge conventional academic paradigms in published journals?',
+          phonetic: 'Ama metodolozhiyaki baheza...',
+          replies: [
+            { text: 'ئەنجامەکانمان مۆدێلێکی نوێ پێشنیار دەکەن کە لەگەڵ ژینگەی ناوخۆییدا دەگونجێت.', translation: 'Our findings propose an updated model suited for local contexts.' },
+            { text: 'جیاوازییەکی واتاداری ئاماری (p < 0.05) لە نێوان گرووپەکاندا دەرکەوت.', translation: 'A statistically significant difference (p < 0.05) emerged across cohorts.' },
+            { text: 'پێشنیارت چییە بۆ بڵاوکردنەوەی ئەم توێژینەوەیە لە گۆڤاری نێودەوڵەتی؟', translation: 'What suggestions do you have for submission to indexed journals?' },
+          ],
+        },
+      ];
+      const pick = academicBankKu[turnIndex % academicBankKu.length];
+      return {
+        replyText: turnIndex >= academicBankKu.length ? `بەردەوام دەبین لە گەنگەشەی زانستی: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else {
+      const academicBankEn = [
+        {
+          replyText: 'Your research hypothesis addresses a critical literature gap. Could you elaborate on your sampling framework and how you controlled for confounding variables during empirical data collection?',
+          translation: 'توێژینەوەکەت دەست دەخاتە سەر کەلێنێکی زانستی گرنگ. دەتوانیت ڕوونی بکەیتەوە چۆن نموونەی توێژینەوەکەت هەڵبژارد و هۆکارە لاوەکییەکانت کۆنترۆڵ کرد؟',
+          phonetic: 'jʊər rɪˈsɜːrtʃ haɪˈpɒθəsɪs əˈdrɛsɪz...',
+          replies: [
+            { text: 'We implemented stratified random sampling to ensure unbiased cohort representation.', translation: 'نموونەیەکی پۆلێنکراوی بەهەڕەمەکیمان بەکارهێنا تا بێ لایەنانە بێت.' },
+            { text: 'Multiple regression and ANOVA tests were executed to isolate confounding effects.', translation: 'شیکاری فرە-لاری و ANOVA بۆ جیاکردنەوەی هۆکارەکان ئەنجامدرا.' },
+            { text: 'What methodological critiques would you highlight regarding this paradigm?', translation: 'چ ڕەخنەیەکی میتۆدۆلۆژی لەسەر ئەم مۆدێلە پێشنیار دەکەیت؟' },
+          ],
+        },
+        {
+          replyText: 'That is a robust methodological rationale. How do your statistical findings diverge from the conventional theoretical models established in recent peer-reviewed publications?',
+          translation: 'ئەمە پاساوێکی میتۆدۆلۆژی زۆر بەهێزە. دەرەنجامە ئامارییەکانت چۆن لەگەڵ مۆدێلە تیۆرییە باوەکاندا جیاوازن؟',
+          phonetic: 'ðæt ɪz ə roʊˈbʌst ˌmɛθədəˈlɒdʒɪkəl...',
+          replies: [
+            { text: 'Our empirical data demonstrated strong statistical significance (p < 0.01).', translation: 'داتاکانمان بەڵگەیەکی ئاماریی زۆر بەهێزیان (p < 0.01) دەرخست.' },
+            { text: 'The results challenge the classical assumptions of linear causality.', translation: 'ئەنجامەکان گومان دەخەنە سەر گریمانە کۆنەکانی هۆکاری هێڵکاری.' },
+            { text: 'How do you recommend framing the discussion section for journal review?', translation: 'چۆن پێشنیار دەکەیت بەشی تاوتوێکردن دابڕێژین بۆ گۆڤاری زانستی؟' },
+          ],
+        },
+      ];
+      const pick = academicBankEn[turnIndex % academicBankEn.length];
+      return {
+        replyText: turnIndex >= academicBankEn.length ? `Continuing our scholarly seminar discussion: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    }
+  }
+
+  // 3. DAILY LIFE & SERVICES CATEGORY
+  if (isDaily) {
+    if (targetLanguage === 'ar') {
+      const dailyBankAr = [
+        {
+          replyText: 'أهلاً وسهلاً بك! يسعدني جداً تقديم المساعدة لك اليوم. ما هي المتطلبات أو التفضيلات المحددة التي تبحث عنها بخصوص الترتيبات والمواعيد والخدمات؟',
+          translation: 'بەخێربێیت! زۆر خۆشحاڵم بە هاوکاریکردنت. چ مەرج یان داواکارییەکت هەیە سەبارەت بە ڕێکخستنەکان، کاتەکان و خزمەتگوزارییەکان؟',
+          phonetic: 'Ahlan wa sahlan bik! Yus\'iduni...',
+          replies: [
+            { text: 'أرغب في معرفة الأسعار وخيارات الدفع وشروط الحجز المسبق.', translation: 'دەمەوێت نرخەکان، شێوازی پارەدان و مەرجی حجز بزانم.' },
+            { text: 'هل تشمل الخدمة التوصيل وتأمين الضمان؟', translation: 'ئایا خزمەتگوزارییەکە گەیاندن و گرەنتی دەگرێتەوە؟' },
+            { text: 'ما هي المواعيد المتاحة للزيارة أو الاستلام هذا الأسبوع؟', translation: 'کاتە بەردەستەکان بۆ سەردان یان وەرگرتن چین لەم هەفتەیەدا؟' },
+          ],
+        },
+        {
+          replyText: 'تم تسجيل كافة التفاصيل بوضوح. الأسعار والخيارات المتاحة محددة ومرنة. هل ترغب في الاطلاع على خطوات التأكيد وسياسة الحجز؟',
+          translation: 'هەموو وردەکارییەکان بە ڕوونی تۆمار کران. نرخ و هەڵبژاردنەکان دیاریکراون. ئایا دەتەوێت هەنگاوەکانی جێگیرکردن و ڕێساکان بزانیت؟',
+          phonetic: 'Tamma tasjeel kaffat al-tafaseel...',
+          replies: [
+            { text: 'نعم، يرجى تزويدي بكافة الخطوات الرسمية لإتمام المعاملة.', translation: 'بەڵێ، تکایە هەموو هەنگاوە فەرمییەکانم پێ بڵێ بۆ تەواوکردنی کارەکە.' },
+            { text: 'هل تتوفر أي عروض أو خصومات على الحجوزات الطويلة؟', translation: 'ئایا هیچ داشکاندنێک هەیە بۆ حجزە درێژخایەنەکان؟' },
+            { text: 'شكراً جزيلاً لتعاونك وخدمتك الراقية.', translation: 'زۆر سوپاس بۆ هاوکاری و خزمەتگوزارییە جوانەکەت.' },
+          ],
+        },
+      ];
+      const pick = dailyBankAr[turnIndex % dailyBankAr.length];
+      return {
+        replyText: turnIndex >= dailyBankAr.length ? `بخصوص استفسارك اليومي: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else if (targetLanguage === 'ku') {
+      const dailyBankKu = [
+        {
+          replyText: 'بەخێربێیت! زۆر خۆشحاڵم بە بینینت. دەتوانیت باسی داواکارییە تایبەتەکانت، کاتەکان، یان ئەو مەرج و خزمەتگوزارییانە بکەیت کە بە لای تۆوە لە پێشینەن؟',
+          translation: 'Welcome! Great to speak with you. What specific preferences, times, or features are most important for your request today?',
+          phonetic: 'Baxerbeyt! Zor xoshhalm ba binint...',
+          replies: [
+            { text: 'دەمەوێت لەسەر نرخەکان، خزمەتگوزارییەکان و وادەی تەواوبوون پرسیار بکەم.', translation: 'I want to ask about pricing, services, and completion timelines.' },
+            { text: 'ئایا هیچ مەرجێکی تایبەت یان بەڵگەنامەیەک پێویستە بۆ ئەم مەبەستە؟', translation: 'Are there specific terms or documentation needed for this?' },
+            { text: 'چ پێشنیارێکت هەیە بۆ باشترین بژاردە بەپێی بودجەکەم؟', translation: 'What do you recommend as the best option within my budget?' },
+          ],
+        },
+        {
+          replyText: 'هەموو داواکارییەکان بە ڕوونی تۆمار کران. خزمەتگوزارییەکان ئامادەن و هەموو شتێک بەپێی دڵی تۆ ڕێکدەخرێت. چ شتێکی تر هەیە کە حەز بکەیت بیزانیت؟',
+          translation: 'All details have been clearly noted. The services are arranged to match your preferences. Is there anything else you would like to know?',
+          phonetic: 'Hamw dawakariyakant ba runi tomar kran...',
+          replies: [
+            { text: 'سوپاس، هەموو شتێک زۆر ڕوون و دڵخۆشکەرە و دەمەوێت تەواوی بکەم.', translation: 'Thank you, everything is crystal clear and I would like to finalize it.' },
+            { text: 'ئەگەر کێشەیەک دروست بێت پەیوەندی بە کێوە بکەم؟', translation: 'If any issue arises, whom should I contact directly?' },
+            { text: 'دەستت خۆش بێت بۆ وەڵامە خێرا و جوانەکانت.', translation: 'Thank you for your prompt and polite assistance.' },
+          ],
+        },
+      ];
+      const pick = dailyBankKu[turnIndex % dailyBankKu.length];
+      return {
+        replyText: turnIndex >= dailyBankKu.length ? `لە درێژەی گفتوگۆکەماندا: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    } else {
+      const dailyBankEn = [
+        {
+          replyText: 'Welcome! I would be delighted to assist you today. What specific requirements or preferences do you have regarding the location, amenities, or schedule?',
+          translation: 'بەخێربێیت! زۆر خۆشحاڵ دەبم یارمەتیت بدەم. چ داواکاری یان مەرجێکی تایبەتت هەیە دەربارەی شوێن، خزمەتگوزارییەکان، یان کاتەکان؟',
+          phonetic: 'ˈwɛlkəm! aɪ wʊd biː dɪˈlaɪtɪd tuː əˈsɪst...',
+          replies: [
+            { text: 'I would like to inquire about pricing, deposit policies, and utilities.', translation: 'حەز دەکەم لەسەر نرخ، بارمتە و کرێی ئاو و کارەبا بپرسم.' },
+            { text: 'Are flexible cancellation and date modifications available?', translation: 'ئایا هەڵوەشاندنەوە یان گۆڕینی کات بە ئاسانی دەکرێت؟' },
+            { text: 'What is the standard check-in or service procedure?', translation: 'ڕێکاری ئاسایی وەرگرتن یان چوونەژوورەوە چۆنە؟' },
+          ],
+        },
+        {
+          replyText: 'Everything has been logged accurately. The available options are flexible and transparent. Would you like me to walk you through the confirmation process?',
+          translation: 'هەموو شتێک بە وردی تۆمار کرا. هەڵبژاردنەکان ڕوون و بەردەستن. حەز دەکەیت هەنگاوەکانی دڵنیابوونەوەت بۆ ڕوون بکەمەوە؟',
+          phonetic: 'ˈɛvriθɪŋ hæz biːn lɒɡd ˈækjʊrɪtli...',
+          replies: [
+            { text: 'Yes, please guide me through the official confirmation steps.', translation: 'بەڵێ، تکایە ڕێنماییم بکە بەناو هەنگاوە فەرمییەکاندا.' },
+            { text: 'Could you email me the itemized breakdown and terms?', translation: 'دەتوانیت وردەکاری نرخی هەموو بەشەکانم بە ئیمەیڵ بۆ بنێریت؟' },
+            { text: 'Thank you very much for your wonderful support and clarity.', translation: 'زۆر سوپاس بۆ پشتیوانی و ڕوونکردنەوەی بەڕێزتان.' },
+          ],
+        },
+      ];
+      const pick = dailyBankEn[turnIndex % dailyBankEn.length];
+      return {
+        replyText: turnIndex >= dailyBankEn.length ? `Continuing our daily interaction: ${pick.replyText}` : pick.replyText,
+        translation: pick.translation,
+        phoneticHint: pick.phonetic,
+        suggestedReplies: pick.replies,
+      };
+    }
+  }
+
+  // 4. Default General Scenarios Fallback (if none of above matched)
   if (targetLanguage === 'ar') {
     const generalAr = [
       {
@@ -784,16 +1124,6 @@ function generateFallbackTutorReply(scenario: string, targetLanguage: string, us
           { text: 'أود استكشاف تفاصيل إضافية حول هذا الموضوع.', translation: 'حەز دەکەم وردەکاری زیاتر باس بکەم لەسەر ئەم بابەتە.' },
           { text: 'هل كانت صياغتي للجملة دقيقة وسلسة؟', translation: 'ئایا داڕشتنی ڕستەکەم دروست و ڕەوان بوو؟' },
           { text: 'ما هي المفردات الأكثر بلاغة التي يمكنني استخدامها هنا؟', translation: 'چ دەستەواژەیەکی شیاوتر هەیە کە دەتوانم بەکاریبهێنم لێرەدا؟' },
-        ],
-      },
-      {
-        replyText: 'فكرة رائعة ونطقك سليم ومتقن للغاية. هل يمكنك مشاركة تجربة سابقة أو مثال واقعي يدعم وجهة نظرك؟',
-        translation: 'بیرۆکەیەکی نایابە و بێژەکردنت زۆر ڕێکە. دەتوانیت نموونەیەکی واقیعی یان ئەزموونی ڕابردووت باس بکەیت؟',
-        phonetic: 'Fikratun ra\'i\'ah wa nutquka saleem...',
-        replies: [
-          { text: 'بالتأكيد، حدث معي موقف مشابه تماماً في العام الماضي.', translation: 'بێگومان، ساڵی ڕابردوو ڕووداوێکی هاوشێوەم بەسەرهات.' },
-          { text: 'أعتقد أن الممارسة المستمرة هي العامل الحاسم في هذا الأمر.', translation: 'پێموایە ڕاهێنانی بەردەوام خاڵی یەکلاکەرەوەیە لەم بابەتەدا.' },
-          { text: 'كيف تنصحني بتطوير سرعة تحدثي باللغة العربية؟', translation: 'چۆن ئامۆژگاریم دەکەیت خێرایی قسەکردنم بە عەرەبی زیاد بکەم؟' },
         ],
       },
     ];
@@ -816,16 +1146,6 @@ function generateFallbackTutorReply(scenario: string, targetLanguage: string, us
           { text: 'پرسیاری داهاتووت لەسەر ئەم ڕوانگەیە چییە؟', translation: 'What is your next question regarding this perspective?' },
         ],
       },
-      {
-        replyText: 'ڕوانگەیەکی زۆر جوان و تێروتەسەلە! نموونەیەکی ژیانی ڕۆژانە یان بەسەرهاتێک هەیە کە پەیوەست بێت بەم وتەیەوە؟',
-        translation: 'A wonderful and insightful perspective! Do you have a real-life example or story related to this statement?',
-        phonetic: 'Rwangayaki zor jwan u terw tasala...',
-        replies: [
-          { text: 'بەڵێ، لە کار یان خوێندنمدا ئەم بارودۆخەم بینیوە.', translation: 'Yes, I experienced this situation firsthand in my work or study.' },
-          { text: 'بە بڕوای من ئەم بابەتە لە کۆمەڵگەدا گرنگییەکی زۆری پێدەدرێت.', translation: 'In my view, this topic is held in high regard across society.' },
-          { text: 'دەتوانیت وشەی گونجاوتر لەسەر ئەم دەربڕینەم پێشنیار بکەیت؟', translation: 'Could you suggest more nuanced vocabulary for my expression?' },
-        ],
-      },
     ];
     const pick = generalKu[turnIndex % generalKu.length];
     return {
@@ -844,16 +1164,6 @@ function generateFallbackTutorReply(scenario: string, targetLanguage: string, us
           { text: 'I would like to explore the broader practical implications.', translation: 'حەز دەکەم کاریگەرییە فراوان و پراکتیکییەکان لێکبدەمەوە.' },
           { text: 'Did my sentence flow naturally and use idiomatic phrasing?', translation: 'ئایا ڕستەکەم سروشتی بوو و زاراوەی گونجاوی بەکارهێنا؟' },
           { text: 'What is the most compelling counter-argument to this point?', translation: 'بەهێزترین بەڵگەی دژ بۆ ئەم خاڵە چییە؟' },
-        ],
-      },
-      {
-        replyText: 'A compelling viewpoint! Could you cite a concrete real-world example or personal anecdote that reinforces your stance?',
-        translation: 'ڕوانگەیەکی سەرسوڕهێنەرە! دەتوانیت نموونەیەکی بەرجەستەی واقیعی یان بەسەرهاتێک بهێنیتەوە بۆ پشتگیری ڕاکەت؟',
-        phonetic: 'ə kəmˈpɛlɪŋ ˈvjuːpɔɪnt! kʊd juː saɪt...',
-        replies: [
-          { text: 'Certainly, I observed this phenomenon directly in our organization.', translation: 'بێگومان، لە دامەزراوەکەماندا ڕاستەوخۆ ئەم دیاردەیەم بینیوە.' },
-          { text: 'From an empirical viewpoint, empirical data strongly corroborates this.', translation: 'لە ڕوانگەیەکی زانستییەوە، بەڵگەکان بە تەواوی ئەمە دەسەلمێنن.' },
-          { text: 'How can I elevate my lexical sophistication in spontaneous discourse?', translation: 'چۆن دەتوانم دەوڵەمەندی وشەکانم لە قسەکردنی کتوپڕدا بەرز بکەمەوە؟' },
         ],
       },
     ];
@@ -1265,6 +1575,7 @@ app.post('/api/tutor-chat', async (req, res) => {
       messages,
       scenario = 'general',
       targetLanguage = 'en',
+      uiLanguage = 'ku',
       tutorPersona = 'Zana',
       userLevel = 'B1',
       requestAudio = true,
@@ -1278,6 +1589,13 @@ app.post('/api/tutor-chat', async (req, res) => {
         ? 'Central Kurdish (سۆرانی)'
         : 'English';
 
+    const uiLangDesc =
+      uiLanguage === 'ar'
+        ? 'Modern Standard Arabic (العربية الفصحى)'
+        : uiLanguage === 'en'
+        ? 'English'
+        : 'Central Kurdish Sorani (کوردیی سۆرانی)';
+
     // Extract previous assistant phrases to forbid any repetition
     const previousAssistantSentences: string[] = [];
     (messages || []).forEach((m: any) => {
@@ -1286,11 +1604,12 @@ app.post('/api/tutor-chat', async (req, res) => {
         previousAssistantSentences.push(...parts);
       }
     });
-    const forbiddenList = previousAssistantSentences.slice(-30).join(' | ');
+    const forbiddenList = previousAssistantSentences.slice(-40).join(' | ');
 
     const systemInstruction = `
-You are an interactive, realistic language tutor and clinical specialist named "${tutorPersona}".
+You are an interactive, realistic language tutor and specialist named "${tutorPersona}".
 You speak fluent Kurdish (Sorani), Arabic, and English.
+The learner's interface language is: ${uiLangDesc}.
 The learner wants to improve their speaking and conversational skills strictly in: ${targetLangDesc}.
 Current learner target level: ${userLevel}.
 Current conversational scenario: ${scenario}.
@@ -1305,25 +1624,25 @@ CRITICAL MANDATES (یاسای بێ کۆتا و قەدەغەکردنی هەموو
 
 2. INFINITE CONTINUOUS DIALOGUE (گفتوگۆی بێ کۆتا و بێ وەستان):
    - NEVER conclude, terminate, or say goodbye. Never say "Take care and goodbye", "Our visit is done", or wrap up the session.
-   - Always advance the scenario into deeper clinical observations, systematic inquiries, differential diagnoses, physiological monitoring, medication adjustments, lifestyle guidance, or investigative questions.
+   - Always advance the scenario into deeper observations, systematic inquiries, differential diagnoses, physiological monitoring, medication adjustments, lifestyle guidance, or investigative questions.
    - Keep the conversation seamlessly alive forever!
 
-STRICT ISOLATION RULES (DO NOT MIX LANGUAGES):
-1. If teaching Arabic (targetLanguage === 'ar'):
-   - "replyText" MUST be 100% natural, correct Arabic (العربية الفصحى المعاصرة). NEVER include English or Kurdish words in "replyText"!
-   - "translation" provides the Kurdish translation for Kurdish speakers.
-   - "suggestedReplies" MUST be in 100% Arabic with Kurdish translation.
-2. If teaching Kurdish (targetLanguage === 'ku'):
-   - "replyText" MUST be 100% authentic Sorani Kurdish. NEVER put Arabic or English into "replyText"!
-   - "translation" provides English or Arabic translation.
-   - "suggestedReplies" MUST be in 100% Kurdish.
-3. If teaching English (targetLanguage === 'en'):
-   - "replyText" MUST be 100% natural English.
-   - "translation" provides Kurdish translation.
-   - "suggestedReplies" MUST be in 100% English.
-4. Keep replies realistic, engaging, and concise (1 to 3 sentences maximum so the student has ample opportunity to reply).
-5. If the student made a grammar or pronunciation mistake, gently point it out in "correctionTip".
-6. Provide 3 realistic, completely novel reply suggestions that the student can choose to practice speaking out loud.
+STRICT LANGUAGE ISOLATION (NO LANGUAGE MIXING):
+1. "replyText" MUST be 100% in the target practice language (${targetLangDesc}).
+   - If targetLanguage is English: 100% natural English. Do NOT mix any Kurdish or Arabic words into "replyText".
+   - If targetLanguage is Arabic: 100% eloquent Arabic. Do NOT mix English or Kurdish into "replyText".
+   - If targetLanguage is Kurdish: 100% natural Central Kurdish (Sorani). Do NOT mix English or Arabic into "replyText".
+2. "translation" MUST be 100% in the learner's interface language (${uiLangDesc}).
+   - If learner interface is Arabic: provide translation in Arabic.
+   - If learner interface is Kurdish: provide translation in Kurdish (Sorani).
+   - If learner interface is English: provide translation in English.
+3. "suggestedReplies":
+   - "text" MUST be 100% in the target practice language (${targetLangDesc}).
+   - "translation" MUST be 100% in the learner's interface language (${uiLangDesc}).
+   - Must be realistic and novel suggestions (never repeated).
+4. "correctionTip":
+   - If student had a mistake, provide explanation in ${uiLangDesc}.
+5. Keep replies realistic, engaging, and concise (1 to 3 sentences maximum so the student has ample opportunity to reply).
 `;
 
     const chatHistory = (messages || []).map((m: any) => ({
@@ -1341,15 +1660,15 @@ STRICT ISOLATION RULES (DO NOT MIX LANGUAGES):
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              replyText: { type: Type.STRING, description: 'The spoken response from the tutor' },
-              translation: { type: Type.STRING, description: 'Translation of reply (Kurdish or English)' },
+              replyText: { type: Type.STRING, description: 'The spoken response from the tutor in target language' },
+              translation: { type: Type.STRING, description: 'Translation of reply in user interface language' },
               phoneticHint: { type: Type.STRING, description: 'Pronunciation / phonetic guide' },
               correctionTip: {
                 type: Type.OBJECT,
                 properties: {
                   studentMistake: { type: Type.STRING },
                   betterWay: { type: Type.STRING },
-                  explanationKurdish: { type: Type.STRING },
+                  explanation: { type: Type.STRING, description: 'Explanation in user interface language' },
                 },
               },
               suggestedReplies: {
@@ -1357,8 +1676,8 @@ STRICT ISOLATION RULES (DO NOT MIX LANGUAGES):
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    text: { type: Type.STRING },
-                    translation: { type: Type.STRING },
+                    text: { type: Type.STRING, description: 'Reply in target language' },
+                    translation: { type: Type.STRING, description: 'Translation in user interface language' },
                   },
                   required: ['text', 'translation'],
                 },
@@ -1398,17 +1717,232 @@ STRICT ISOLATION RULES (DO NOT MIX LANGUAGES):
   }
 });
 
-// 4. CEFR Speaking Level Test Prompts (100 Unique Non-Duplicate Stages)
+// 4. CEFR Speaking Level Test Prompts (1000 Progressive Stages Across 10 Worlds)
 app.get('/api/level-test-steps', (req, res) => {
   try {
     const language = (req.query.language || 'en') as TargetLanguage;
-    const steps = get100TestStepsForLanguage(language);
+    const steps = get1000TestStepsForLanguage(language);
     res.json(steps);
   } catch (err: any) {
-    console.error('Error serving 100 level-test-steps:', err);
+    console.error('Error serving 1000 level-test-steps:', err);
     res.status(500).json({ error: 'Failed to retrieve speaking stages' });
   }
 });
+
+// 5. High-Precision Realtime Multilingual Translation Endpoint (Kurdish, Arabic, English)
+app.post('/api/translate', async (req, res) => {
+  try {
+    const {
+      text,
+      sourceLang = 'auto',
+      targetLang = 'ku',
+      requestAudio = true,
+      domain = 'general',
+    } = req.body;
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      res.status(400).json({ error: 'Text to translate is required' });
+      return;
+    }
+
+    const cleanInput = text.trim();
+
+    // Source and Target descriptions
+    const langNames: Record<string, string> = {
+      ku: 'Central Kurdish (سۆرانی)',
+      ar: 'Modern Standard Arabic (العربية الفصحى)',
+      en: 'English',
+    };
+
+    const targetDesc = langNames[targetLang] || 'Central Kurdish (سۆرانی)';
+
+    const systemInstruction = `
+You are an expert multilingual translator and computational linguist specializing in Central Kurdish (Sorani), Modern Standard Arabic, and English.
+Your goal is to provide the most accurate, natural, and context-aware translation possible.
+
+Input text: "${cleanInput}"
+Expected Target Language: ${targetDesc} (${targetLang}).
+Source Language: ${sourceLang === 'auto' ? 'Auto-detect between Kurdish, Arabic, or English' : langNames[sourceLang] || sourceLang}.
+Domain: ${domain} (e.g. medical/hospital, business/contracts, academic/research, daily conversation).
+
+CRITICAL ACCURACY & TRANSLATION RULES:
+1. "translatedText": MUST be strictly in ${targetDesc}.
+   - If target is Kurdish (ku): Use authentic Central Kurdish (Sorani) orthography (ئ، ە، ێ، ۆ، ڕ، ڵ، ڤ، گ، چ، ژ، پ). NEVER use Persian or Arabic loan spellings where standard Kurdish exists.
+   - If target is Arabic (ar): Use eloquent, grammatically correct Modern Standard Arabic (فصحى سليمة).
+   - If target is English (en): Use natural, fluent, native-level English.
+2. "phonetic":
+   - If target is Kurdish: Latin Kurdish transliteration (Hawar script, e.g., 'Silaw le Kurdistan').
+   - If target is Arabic: Transliteration with vowels/tashkeel guidance.
+   - If target is English: Standard phonetic representation or IPA.
+3. "wordBreakdown": Break down key words with their translated equivalents and grammatical part of speech.
+4. "exampleSentences": Provide 2 relevant example sentences demonstrating real-world usage in the target language with translation.
+5. "detectedSource": Detect whether the input is 'ku', 'ar', or 'en'.
+
+Return strictly valid JSON matching the schema.
+`;
+
+    let translationResult: any = null;
+
+    try {
+      const response = await generateGeminiContentWithFallback({
+        contents: [{ role: 'user', parts: [{ text: `Translate precisely: "${cleanInput}"` }] }],
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              translatedText: { type: Type.STRING },
+              detectedSource: { type: Type.STRING },
+              phonetic: { type: Type.STRING },
+              alternativeTranslations: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              wordBreakdown: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    original: { type: Type.STRING },
+                    translated: { type: Type.STRING },
+                    partOfSpeech: { type: Type.STRING },
+                  },
+                  required: ['original', 'translated'],
+                },
+              },
+              exampleSentences: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    source: { type: Type.STRING },
+                    target: { type: Type.STRING },
+                  },
+                  required: ['source', 'target'],
+                },
+              },
+            },
+            required: ['translatedText', 'detectedSource'],
+          },
+        },
+      });
+
+      translationResult = JSON.parse(response.text || '{}');
+    } catch (apiErr: any) {
+      console.warn('Gemini live translate fallback engaged:', apiErr?.message || apiErr);
+      // Fast resilient linguistic fallback
+      translationResult = generateFallbackTranslation(cleanInput, sourceLang, targetLang);
+    }
+
+    // Generate speech audio for translated text if requested
+    let audioBase64: string | null = null;
+    if (requestAudio && translationResult.translatedText) {
+      const audioResult = await generateTTSAudio(translationResult.translatedText, 'Kore', undefined, targetLang);
+      audioBase64 = audioResult?.audioBase64 || null;
+    }
+
+    res.json({
+      ...translationResult,
+      audioBase64,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/translate:', error);
+    res.status(500).json({
+      error: 'Translation error',
+      details: error?.message,
+    });
+  }
+});
+
+// Helper dictionary for instant fallback translation across Kurdish, Arabic, and English
+function generateFallbackTranslation(input: string, sourceLang: string, targetLang: string) {
+  const norm = input.toLowerCase().trim();
+
+  // Common vocabulary and phrases dictionary
+  const dict: Record<string, { ku: string; ar: string; en: string; phonetic?: string }> = {
+    // Medical & Hospital
+    'hospital': { ku: 'نەخۆشخانە', ar: 'مستشفى', en: 'Hospital', phonetic: 'Nexoshxane' },
+    'doctor': { ku: 'پزیشک / دکتۆر', ar: 'طبيب / دكتور', en: 'Doctor / Physician', phonetic: 'Pzishk' },
+    'emergency': { ku: 'فریاکەوتنی خێرا', ar: 'طوارئ', en: 'Emergency Room', phonetic: 'Fiyakewtini Xera' },
+    'pain': { ku: 'ئازار', ar: 'ألم', en: 'Pain', phonetic: 'Azar' },
+    'medicine': { ku: 'دەرمان', ar: 'دواء', en: 'Medicine / Medication', phonetic: 'Derman' },
+    'pharmacy': { ku: 'دەرمانخانە', ar: 'صيدلية', en: 'Pharmacy', phonetic: 'Dermanxane' },
+    'fever': { ku: 'تا / گەرمی لەش', ar: 'حمى / حرارة', en: 'Fever', phonetic: 'Ta' },
+    'blood pressure': { ku: 'پەستانی خوێن', ar: 'ضغط الدم', en: 'Blood pressure', phonetic: 'Pestani Xwen' },
+    'heart': { ku: 'دڵ', ar: 'قلب', en: 'Heart', phonetic: 'Dil' },
+    'surgery': { ku: 'نەشتەرگەری', ar: 'جراحة', en: 'Surgery', phonetic: 'Neshtergeri' },
+    'headache': { ku: 'سەرئێشە', ar: 'صداع', en: 'Headache', phonetic: 'Sereshe' },
+    'prescription': { ku: 'ڕەچەتەی پزیشک', ar: 'وصفة طبية', en: 'Prescription', phonetic: 'Rechetey Pzishk' },
+    'patient': { ku: 'نەخۆش', ar: 'مريض', en: 'Patient', phonetic: 'Nexosh' },
+    
+    // Business & Commerce
+    'contract': { ku: 'گرێبەست', ar: 'عقد / اتفاقية', en: 'Contract', phonetic: 'Grebest' },
+    'business': { ku: 'بازرگانی / کار', ar: 'أعمال / تجارة', en: 'Business / Commerce', phonetic: 'Bazirgani' },
+    'company': { ku: 'کۆمپانیا', ar: 'شركة', en: 'Company', phonetic: 'Kompanya' },
+    'meeting': { ku: 'کۆبوونەوە', ar: 'اجتماع', en: 'Meeting', phonetic: 'Kobunewe' },
+    'negotiation': { ku: 'دانوستان', ar: 'مفاوضات', en: 'Negotiation', phonetic: 'Danustan' },
+    'investment': { ku: 'وەبەرهێنان', ar: 'استثمار', en: 'Investment', phonetic: 'Weberhênan' },
+    'profit': { ku: 'قازانج / سوود', ar: 'أرباح', en: 'Profit', phonetic: 'Qazanc' },
+    'price': { ku: 'نرخ', ar: 'سعر', en: 'Price', phonetic: 'Nirx' },
+    'invoice': { ku: 'پسوولە / فاکتۆر', ar: 'فاتورة', en: 'Invoice', phonetic: 'Psule' },
+    'agreement': { ku: 'ڕێککەوتننامە', ar: 'اتفاق', en: 'Agreement', phonetic: 'Rêkkewtin' },
+    
+    // Academic & Education
+    'university': { ku: 'زانکۆ', ar: 'جامعة', en: 'University', phonetic: 'Zanko' },
+    'research': { ku: 'توێژینەوە', ar: 'بحث علمي', en: 'Research', phonetic: 'Twezhinewe' },
+    'thesis': { ku: 'تێز / نامەی زانستی', ar: 'أطروحة / رسالة', en: 'Thesis / Dissertation', phonetic: 'Têz' },
+    'professor': { ku: 'پڕۆفیسۆر / مامۆستای زانکۆ', ar: 'أستاذ جامعي', en: 'Professor', phonetic: 'Profesor' },
+    'science': { ku: 'زانست', ar: 'علم', en: 'Science', phonetic: 'Zanst' },
+    'student': { ku: 'فێرخواز / خوێندکار', ar: 'طالب / باحث', en: 'Student / Scholar', phonetic: 'Fêrxwaz' },
+    'lecture': { ku: 'وانە / وتار', ar: 'محاضرة', en: 'Lecture', phonetic: 'Wane' },
+    'laboratory': { ku: 'تاقیگە', ar: 'مختبر', en: 'Laboratory', phonetic: 'Taqige' },
+    
+    // Daily Life
+    'hello': { ku: 'سڵاو', ar: 'مرحباً / أهلاً', en: 'Hello', phonetic: 'Silaw' },
+    'thank you': { ku: 'سوپاس بۆ تۆ', ar: 'شكراً جزيلاً', en: 'Thank you very much', phonetic: 'Supas' },
+    'good morning': { ku: 'بەیانیت باش', ar: 'صباح الخير', en: 'Good morning', phonetic: 'Beyanit bash' },
+    'good evening': { ku: 'ئێوارەت باش', ar: 'مساء الخير', en: 'Good evening', phonetic: 'Ewaret bash' },
+    'welcome': { ku: 'بەخێربێیت', ar: 'أهلاً وسهلاً', en: 'Welcome', phonetic: 'Bexêrbêyt' },
+    'airport': { ku: 'فڕۆکەخانە', ar: 'مطار', en: 'Airport', phonetic: 'Froke-xane' },
+    'apartment': { ku: 'شوقە / ماڵ', ar: 'شقة سكنية', en: 'Apartment / Flat', phonetic: 'Shuqe' },
+  };
+
+  for (const [key, val] of Object.entries(dict)) {
+    if (norm === key || norm.includes(key)) {
+      const trans = targetLang === 'ku' ? val.ku : targetLang === 'ar' ? val.ar : val.en;
+      return {
+        translatedText: trans,
+        detectedSource: sourceLang === 'auto' ? 'en' : sourceLang,
+        phonetic: val.phonetic || trans,
+        alternativeTranslations: [trans],
+        wordBreakdown: [{ original: input, translated: trans, partOfSpeech: 'Term' }],
+        exampleSentences: [
+          {
+            source: input,
+            target: trans,
+          },
+        ],
+      };
+    }
+  }
+
+  // Generic fallback if unknown word
+  const fallbackTrans = targetLang === 'ku'
+    ? `وەرگێڕان بۆ کوردی: ${input}`
+    : targetLang === 'ar'
+    ? `الترجمة للعربية: ${input}`
+    : `Translation to English: ${input}`;
+
+  return {
+    translatedText: fallbackTrans,
+    detectedSource: sourceLang === 'auto' ? 'ku' : sourceLang,
+    phonetic: input,
+    alternativeTranslations: [fallbackTrans],
+    wordBreakdown: [{ original: input, translated: fallbackTrans, partOfSpeech: 'phrase' }],
+    exampleSentences: [],
+  };
+}
 
 // Vite middleware for development & static serving for production
 async function startServer() {

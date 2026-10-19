@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TargetLanguage, UILanguage, AssessmentResult, TestStep, VoiceHistoryItem } from '../types';
 import { assessVoiceInput, fetchLevelTestSteps } from '../services/api';
-import { VoiceRecorder, playWordOrSentence, stopCurrentAudio, isIOS, isAndroid } from '../utils/audio';
+import { VoiceRecorder, playWordOrSentence, playBase64Audio, stopCurrentAudio, isIOS, isAndroid } from '../utils/audio';
 import { AudioVisualizer } from './AudioVisualizer';
 import { VoiceHistory } from './VoiceHistory';
 import { KuVoiceLogo } from './KuVoiceLogo';
+import { LevelMapPathway } from './LevelMapPathway';
+import { AudioWaveStudioPlayer } from './AudioWaveStudioPlayer';
 import {
   initializeUserAuth,
   saveAttemptToFirestore,
@@ -42,7 +44,18 @@ import {
   Eye,
   EyeOff,
   Check,
+  Lock,
+  Unlock,
+  Star,
+  SkipBack,
+  SkipForward,
+  Map as MapIcon,
+  Lightbulb,
 } from 'lucide-react';
+import { KurdistanFlag } from './KurdistanFlag';
+import { KurdishSoundwaveFlag } from './KurdishSoundwaveFlag';
+import { StagesMapRoad } from './StagesMapRoad';
+import { WORLDS_CONFIG, get1000TestStepsForLanguage } from '../data/speakingStages1000';
 
 interface VoiceAssessmentTabProps {
   uiLang: UILanguage;
@@ -51,6 +64,15 @@ interface VoiceAssessmentTabProps {
   voiceSpeed: number;
   onAssessmentCompleted: (result: AssessmentResult) => void;
   onSelectTargetLang?: (lang: TargetLanguage) => void;
+  onVoiceHistoryUpdated?: (history: VoiceHistoryItem[]) => void;
+  coins?: number;
+  onAddCoins?: (amount: number, reason?: string) => void;
+  hintsCount?: number;
+  onUseHint?: () => boolean;
+  slowAudioUnlocked?: boolean;
+  onOpenStore?: () => void;
+  initialViewMode?: 'studio' | 'roadmap';
+  onNavigateTab?: (tab: string) => void;
 }
 
 export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
@@ -60,15 +82,64 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
   voiceSpeed,
   onAssessmentCompleted,
   onSelectTargetLang,
+  onVoiceHistoryUpdated,
+  coins = 1000,
+  onAddCoins,
+  hintsCount = 3,
+  onUseHint,
+  slowAudioUnlocked = false,
+  onOpenStore,
+  initialViewMode = 'studio',
+  onNavigateTab,
 }) => {
   const isKu = uiLang === 'ku';
   const isAr = uiLang === 'ar';
 
+  // View Mode: 'studio' (Active speaking studio matching Screenshot 3) vs 'roadmap' (Winding road map matching Screenshot 2)
+  const [viewMode, setViewMode] = useState<'studio' | 'roadmap'>(initialViewMode);
+
+  useEffect(() => {
+    if (initialViewMode) {
+      setViewMode(initialViewMode);
+    }
+  }, [initialViewMode]);
+
   // Mode: 'full_exam' (100 progressive stages) vs 'quick_test' (1 quick spontaneous prompt)
   const [examMode, setExamMode] = useState<'full_exam' | 'quick_test'>('full_exam');
-  const [testSteps, setTestSteps] = useState<TestStep[]>([]);
+  // Immediately initialize with all 1,000 stages so it is never empty!
+  const [testSteps, setTestSteps] = useState<TestStep[]>(() => get1000TestStepsForLanguage(targetLang));
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [loadingSteps, setLoadingSteps] = useState(false);
+
+  // 1,000 Levels Progression & Locking system
+  const [unlockedStage, setUnlockedStage] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('kd_voice_unlocked_stage_v2');
+      return saved ? Math.max(1, parseInt(saved, 10)) : 1;
+    } catch (e) {
+      return 1;
+    }
+  });
+
+  const [completedStageScores, setCompletedStageScores] = useState<{ [stageId: number]: number }>(() => {
+    try {
+      const saved = localStorage.getItem('kd_voice_completed_scores_v2');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const [lockedStageNotice, setLockedStageNotice] = useState<string | null>(null);
+  const [isHintActive, setIsHintActive] = useState(false);
+  const [audioSlowMode, setAudioSlowMode] = useState<number>(1.0);
+  const [earnedCoinNotice, setEarnedCoinNotice] = useState<{ amount: number; score: number } | null>(null);
+
+  useEffect(() => {
+    setIsHintActive(false);
+    setEarnedCoinNotice(null);
+  }, [currentStepIndex]);
+  const [selectedWorldId, setSelectedWorldId] = useState<number>(1);
 
   // Stage browser & filters
   const [showStagesBrowser, setShowStagesBrowser] = useState(false);
@@ -76,7 +147,6 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSampleAnswer, setShowSampleAnswer] = useState(false);
-  const [completedStageIds, setCompletedStageIds] = useState<Set<number>>(new Set());
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -97,6 +167,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [playingWord, setPlayingWord] = useState<string | null>(null);
   const [isPlayingWordSequence, setIsPlayingWordSequence] = useState<boolean>(false);
+  const [isPlayingUserVoice, setIsPlayingUserVoice] = useState<boolean>(false);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [selectedWordTip, setSelectedWordTip] = useState<{ word: string; tip?: string; status?: string; phonetic?: string } | null>(null);
 
@@ -104,15 +175,41 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
   const [voiceHistory, setVoiceHistory] = useState<VoiceHistoryItem[]>([]);
   const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
 
+  // Helper to deduplicate attempts strictly by stageId or id (preventing duplicate rows)
+  const deduplicateHistoryItems = (items: VoiceHistoryItem[]): VoiceHistoryItem[] => {
+    const map = new Map<string, VoiceHistoryItem>();
+    for (const item of items) {
+      if (!item) continue;
+      // Key by stageId if present to avoid multiple entries for the same stage
+      const key = item.stageId ? `stage-${item.stageId}` : item.id;
+      if (!map.has(key) || (item.timestamp && item.timestamp > (map.get(key)!.timestamp || 0))) {
+        map.set(key, item);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  };
+
+  // Initialize Firebase anonymous auth and two-way sync
   // Initialize Firebase anonymous auth and two-way sync
   useEffect(() => {
-    // 1. Initial load from LocalStorage
+    let isMounted = true;
+    // 1. Initial load from LocalStorage with deduplication across any legacy keys
     try {
-      const stored = localStorage.getItem('ku_voice_assessment_history_v1');
+      const stored =
+        localStorage.getItem('kd_voice_assessment_history_v1') ||
+        localStorage.getItem('ku_voice_assessment_history_v1') ||
+        localStorage.getItem('argosh_voice_history');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setVoiceHistory(parsed.slice(0, 5));
+          const deduped = deduplicateHistoryItems(parsed).slice(0, 5);
+          setVoiceHistory(deduped);
+          localStorage.setItem('kd_voice_assessment_history_v1', JSON.stringify(deduped));
+          // Clean duplicate legacy keys
+          try {
+            localStorage.removeItem('ku_voice_assessment_history_v1');
+            localStorage.removeItem('argosh_voice_history');
+          } catch (e) {}
         }
       }
     } catch (err) {
@@ -121,25 +218,27 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
 
     // 2. Connect to Firebase Auth & fetch cloud backups
     const unsubscribe = initializeUserAuth(async (user) => {
-      if (user) {
+      if (user && isMounted) {
         setFirebaseUid(user.uid);
         try {
           const cloudAttempts = await loadAttemptsFromFirestore(user.uid, 5);
-          if (cloudAttempts && cloudAttempts.length > 0) {
+          if (cloudAttempts && cloudAttempts.length > 0 && isMounted) {
             setVoiceHistory((prev) => {
-              const map = new Map<string, VoiceHistoryItem>();
-              // Local items
-              prev.forEach((item) => map.set(item.id, item));
-              // Cloud items
-              cloudAttempts.forEach((item) => map.set(item.id, item));
-              const merged = Array.from(map.values())
-                .sort((a, b) => b.timestamp - a.timestamp)
-                .slice(0, 5);
+              const merged = deduplicateHistoryItems([...cloudAttempts, ...prev]).slice(0, 5);
               try {
-                localStorage.setItem('ku_voice_assessment_history_v1', JSON.stringify(merged));
+                localStorage.setItem('kd_voice_assessment_history_v1', JSON.stringify(merged));
               } catch (e) {}
               return merged;
             });
+            // Safely notify parent component outside of the render/updater phase
+            setTimeout(() => {
+              if (isMounted && onVoiceHistoryUpdated) {
+                try {
+                  const stored = localStorage.getItem('kd_voice_assessment_history_v1');
+                  if (stored) onVoiceHistoryUpdated(JSON.parse(stored));
+                } catch (e) {}
+              }
+            }, 0);
           }
         } catch (cloudErr) {
           console.warn('Firebase cloud attempts sync notice:', cloudErr);
@@ -147,29 +246,62 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const saveVoiceHistory = (items: VoiceHistoryItem[]) => {
-    const trimmed = items.slice(0, 5);
+    const deduped = deduplicateHistoryItems(items);
+    const trimmed = deduped.slice(0, 5);
     setVoiceHistory(trimmed);
+    if (onVoiceHistoryUpdated) {
+      setTimeout(() => onVoiceHistoryUpdated(trimmed), 0);
+    }
     try {
-      localStorage.setItem('ku_voice_assessment_history_v1', JSON.stringify(trimmed));
+      localStorage.setItem('kd_voice_assessment_history_v1', JSON.stringify(trimmed));
     } catch (err) {
       console.warn('LocalStorage save error (likely quota), pruning oldest attempts:', err);
       try {
         const pruned = trimmed.slice(0, 3);
         setVoiceHistory(pruned);
-        localStorage.setItem('ku_voice_assessment_history_v1', JSON.stringify(pruned));
+        if (onVoiceHistoryUpdated) {
+          setTimeout(() => onVoiceHistoryUpdated(pruned), 0);
+        }
+        localStorage.setItem('kd_voice_assessment_history_v1', JSON.stringify(pruned));
       } catch (e2) {}
     }
   };
 
   const handleClearHistory = () => {
     setVoiceHistory([]);
+    if (onVoiceHistoryUpdated) {
+      setTimeout(() => onVoiceHistoryUpdated([]), 0);
+    }
     try {
+      localStorage.removeItem('kd_voice_assessment_history_v1');
       localStorage.removeItem('ku_voice_assessment_history_v1');
-    } catch (e) {}
+      localStorage.removeItem('argosh_voice_history');
+    } catch (err) {}
+  };
+
+  const handleCleanDuplicateHistory = () => {
+    setVoiceHistory((prev) => {
+      const deduped = deduplicateHistoryItems(prev).slice(0, 5);
+      try {
+        localStorage.setItem('kd_voice_assessment_history_v1', JSON.stringify(deduped));
+      } catch (e) {}
+      return deduped;
+    });
+    setTimeout(() => {
+      if (onVoiceHistoryUpdated) {
+        try {
+          const stored = localStorage.getItem('kd_voice_assessment_history_v1');
+          if (stored) onVoiceHistoryUpdated(JSON.parse(stored));
+        } catch (e) {}
+      }
+    }, 0);
   };
 
   const handleDeleteAttempt = (id: string) => {
@@ -200,11 +332,12 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
       setLoadingSteps(true);
       try {
         const steps = await fetchLevelTestSteps(targetLang);
-        setTestSteps(steps);
-        setCurrentStepIndex(0);
-        setResult(null);
+        if (steps && steps.length > 0) {
+          setTestSteps(steps);
+        }
       } catch (e) {
-        console.error('Failed to load steps', e);
+        console.warn('Fallback to local test steps', e);
+        setTestSteps(get1000TestStepsForLanguage(targetLang));
       } finally {
         setLoadingSteps(false);
       }
@@ -242,20 +375,16 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     minSpeakingSeconds: 8,
   };
 
-  // Localized displayed titles and instructions
+  // Localized displayed titles and instructions strictly matching user's chosen UI language
   const stepTitle =
-    targetLang === 'ar'
-      ? currentStep.titleAr || currentStep.title
-      : isAr
+    isAr
       ? currentStep.titleAr || currentStep.title
       : isKu
       ? currentStep.titleKu || currentStep.title
       : currentStep.titleEn || currentStep.title;
 
   const stepInstruction =
-    targetLang === 'ar'
-      ? currentStep.instructionArabic || currentStep.instructionEnglish
-      : isAr
+    isAr
       ? currentStep.instructionArabic || currentStep.instructionEnglish
       : isKu
       ? currentStep.instructionKurdish || currentStep.instructionEnglish
@@ -268,12 +397,27 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
       ? currentStep.promptKu || currentStep.promptText
       : currentStep.promptEn || currentStep.promptText;
 
+  // Localized translation of the prompt phrase into the user's interface language
+  const stepPromptTranslation =
+    isAr
+      ? (targetLang === 'ar' ? currentStep.promptEn : currentStep.promptAr || currentStep.promptKu)
+      : isKu
+      ? (targetLang === 'ku' ? currentStep.promptEn : currentStep.promptKu)
+      : currentStep.promptEn;
+
   const sampleAnswerText =
     targetLang === 'ar'
       ? currentStep.sampleAnswerAr || currentStep.sampleIdealAnswer
       : targetLang === 'ku'
       ? currentStep.sampleAnswerKu || currentStep.sampleIdealAnswer
       : currentStep.sampleAnswerEn || currentStep.sampleIdealAnswer;
+
+  const sampleAnswerTranslation =
+    isAr
+      ? (targetLang === 'ar' ? currentStep.sampleAnswerEn : currentStep.sampleAnswerAr || currentStep.sampleAnswerKu)
+      : isKu
+      ? (targetLang === 'ku' ? currentStep.sampleAnswerEn : currentStep.sampleAnswerKu)
+      : currentStep.sampleAnswerEn;
 
   // Play prompt audio in authentic target language voice
   const handlePlayPrompt = async (customText?: string, speed: number = voiceSpeed) => {
@@ -350,6 +494,26 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     } finally {
       setIsPlayingWordSequence(false);
       setPlayingWord(null);
+    }
+  };
+
+  // Re-listen to user's recorded speaking audio
+  const handlePlayUserVoice = async () => {
+    if (!recordedAudioBase64) return;
+    if (isPlayingUserVoice) {
+      stopCurrentAudio();
+      setIsPlayingUserVoice(false);
+      return;
+    }
+
+    try {
+      stopCurrentAudio();
+      setIsPlayingUserVoice(true);
+      await playBase64Audio(recordedAudioBase64, recordedMimeType || 'audio/webm');
+    } catch (e) {
+      console.warn('Error playing user voice:', e);
+    } finally {
+      setIsPlayingUserVoice(false);
     }
   };
 
@@ -500,7 +664,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
       // Save speaking attempt to local storage-backed Voice History
       if (audioBase64) {
         const historyItem: VoiceHistoryItem = {
-          id: `attempt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `attempt-${currentStep.id}-${Date.now()}`,
           stageId: currentStep.id,
           stageLevel: currentStep.level,
           stageTitle: stepTitle,
@@ -514,23 +678,64 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
           scores: evaluation.scores,
           recognizedText: evaluation.recognizedText,
         };
-        saveVoiceHistory([historyItem, ...voiceHistory.filter((h) => h.id !== historyItem.id)]);
+        // Prevent duplicate addition for the same stage
+        const filteredHistory = voiceHistory.filter(
+          (h) => h.stageId !== currentStep.id && h.id !== historyItem.id
+        );
+        saveVoiceHistory([historyItem, ...filteredHistory]);
         // Persist to Firebase Firestore database
         saveAttemptToFirestore(historyItem, firebaseUid || undefined).catch((err) => {
           console.warn('Firebase cloud sync:', err);
         });
       }
 
-      // Track completed stage
-      setCompletedStageIds((prev) => new Set(prev).add(currentStep.id));
+      // Track completed stage and highest score
+      setCompletedStageScores((prev) => {
+        const next = { ...prev, [currentStep.id]: Math.max(prev[currentStep.id] || 0, evaluation.overallScore) };
+        try {
+          localStorage.setItem('kd_voice_completed_scores_v2', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
 
-      // Trigger celebration confetti if score is high
-      if (evaluation.overallScore >= 70) {
+      // Unlock next stage if passing score >= 60
+      if (evaluation.overallScore >= 60) {
+        if (currentStep.id >= unlockedStage) {
+          const nextUnlock = Math.min(1000, currentStep.id + 1);
+          setUnlockedStage(nextUnlock);
+          try {
+            localStorage.setItem('kd_voice_unlocked_stage_v2', nextUnlock.toString());
+          } catch (e) {}
+        }
+
+        // Calculate dynamic gold coins based on accuracy score
+        let earnedCoins = 15;
+        if (evaluation.overallScore >= 95) {
+          earnedCoins = 120; // Native mastery
+        } else if (evaluation.overallScore >= 85) {
+          earnedCoins = 85;  // Very good
+        } else if (evaluation.overallScore >= 70) {
+          earnedCoins = 60;  // Good
+        } else if (evaluation.overallScore >= 60) {
+          earnedCoins = 40;  // Passing
+        }
+
+        setEarnedCoinNotice({
+          amount: earnedCoins,
+          score: evaluation.overallScore,
+        });
+
+        // Add gold coins reward
+        if (onAddCoins) {
+          onAddCoins(earnedCoins, `Stage #${currentStep.id} (${evaluation.overallScore}%)`);
+        }
+
+        // Trigger celebratory confetti with proud Kurdish flag colors (Red, White, Green, Golden Sun)
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: 90,
+          spread: 80,
           origin: { y: 0.6 },
-          colors: ['#10b981', '#06b6d4', '#3b82f6', '#f59e0b'],
+          colors: ['#ED2024', '#FFFFFF', '#009739', '#FFD100'],
         });
       }
     } catch (err: any) {
@@ -552,7 +757,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 95) {
       return {
         circle: 'border-cyan-400 bg-cyan-950/60 text-cyan-300 shadow-lg shadow-cyan-500/30 ring-2 ring-cyan-400/40',
-        labelKu: 'نایاب و بێ هەڵە (Mastery)',
+        labelKu: 'نایاب و بێ هەڵە',
         labelAr: 'إتقان تام وممتاز',
         labelEn: 'Native Mastery',
         barColor: 'bg-gradient-to-r from-cyan-400 to-emerald-400',
@@ -561,7 +766,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 88) {
       return {
         circle: 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-md shadow-emerald-500/25',
-        labelKu: 'زۆر پێشکەوتوو (Excellent)',
+        labelKu: 'زۆر پێشکەوتوو',
         labelAr: 'ممتاز وطلاقة عالية',
         labelEn: 'Excellent',
         barColor: 'bg-emerald-400',
@@ -570,7 +775,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 75) {
       return {
         circle: 'border-emerald-500/80 bg-emerald-950/40 text-emerald-400',
-        labelKu: 'زۆر باش (Very Good)',
+        labelKu: 'زۆر باش',
         labelAr: 'جيد جداً',
         labelEn: 'Very Good',
         barColor: 'bg-emerald-500',
@@ -579,7 +784,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 65) {
       return {
         circle: 'border-teal-500/80 bg-teal-950/40 text-teal-300',
-        labelKu: 'باش (Good)',
+        labelKu: 'باش',
         labelAr: 'جيد',
         labelEn: 'Good',
         barColor: 'bg-teal-500',
@@ -588,7 +793,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 55) {
       return {
         circle: 'border-sky-500/80 bg-sky-950/40 text-sky-300',
-        labelKu: 'مامناوەند (Intermediate)',
+        labelKu: 'مامناوەند',
         labelAr: 'متوسط',
         labelEn: 'Intermediate',
         barColor: 'bg-sky-500',
@@ -597,7 +802,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 45) {
       return {
         circle: 'border-amber-500/80 bg-amber-950/40 text-amber-400 shadow-amber-500/20',
-        labelKu: 'سەرەتایی (Developing)',
+        labelKu: 'سەرەتایی',
         labelAr: 'أساسي قيد التطور',
         labelEn: 'Developing',
         barColor: 'bg-amber-500',
@@ -606,7 +811,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     if (score >= 35) {
       return {
         circle: 'border-orange-500/80 bg-orange-950/40 text-orange-400 shadow-orange-500/20',
-        labelKu: 'پێویستی بە مەشقە (Needs Work)',
+        labelKu: 'پێویستی بە مەشقە',
         labelAr: 'يحتاج تدريباً مكثفاً',
         labelEn: 'Needs Practice',
         barColor: 'bg-orange-500',
@@ -614,7 +819,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     }
     return {
       circle: 'border-rose-500/80 bg-rose-950/40 text-rose-400 shadow-rose-500/20',
-      labelKu: 'کەمترین دەنگ یان ناتەواو (Incomplete)',
+      labelKu: 'کەمترین دەنگ یان ناتەواو',
       labelAr: 'استجابة غير مكتملة',
       labelEn: 'Incomplete',
       barColor: 'bg-rose-500',
@@ -638,8 +843,16 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     }
   };
 
-  // Filtered steps for the 100-stage browser
+  // Filtered steps for the 1,000-stage browser
   const filteredSteps = testSteps.filter((step) => {
+    // Filter by World if a specific world is selected
+    if (selectedWorldId !== 0) {
+      const worldConfig = WORLDS_CONFIG.find((w) => w.id === selectedWorldId);
+      if (worldConfig && (step.id < worldConfig.range[0] || step.id > worldConfig.range[1])) {
+        return false;
+      }
+    }
+
     const matchesLevel =
       levelFilter === 'all' ||
       step.level === levelFilter ||
@@ -656,6 +869,11 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
     return matchesLevel && matchesCategory && matchesSearch;
   });
 
+  // Calculate current World configuration for active step
+  const currentWorldId = Math.min(10, Math.floor(((currentStep.id || 1) - 1) / 100) + 1);
+  const currentWorld = WORLDS_CONFIG.find((w) => w.id === currentWorldId) || WORLDS_CONFIG[0];
+  const progressPercent = Math.min(100, Math.max(0, ((unlockedStage / 1000) * 100))).toFixed(1);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header Banner */}
@@ -667,121 +885,115 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>
                 {isAr
-                  ? 'اختبار قياس النطق والطلاقة الشامل بالذكاء الاصطناعي (CEFR 100)'
+                  ? 'اختبار قياس النطق والطلاقة الشامل بالذكاء الاصطناعي (١,٠٠٠ مرحلة متتالية)'
                   : isKu
-                  ? 'تاقیکردنەوەی پێشکەوتووی دەنگی بە پێوەری نێودەوڵەتی CEFR (١٠٠ قۆناغ)'
-                  : 'CEFR International Speaking Proficiency Exam (100 Progressive Stages)'}
+                  ? 'تاقیکردنەوەی پێشکەوتووی دەنگی بە پێوەری نێودەوڵەتی CEFR (١,٠٠٠ قۆناغی قوفڵکراو)'
+                  : 'CEFR International Speaking Proficiency Exam (1,000 Progressive Stages)'}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <KuVoiceLogo size="md" glow={true} />
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                 {isAr
-                  ? 'اختبار قياس مستوى التحدث الصوتي (100 مرحلة)'
+                  ? 'اختبار قياس مستوى التحدث الصوتي (١,٠٠٠ مرحلة)'
                   : isKu
-                  ? 'تاقیکردنەوەی ئاستی قسەکردن بە دەنگ (١٠٠ قۆناغ)'
-                  : 'Voice Speaking Level Assessment (100 Stages)'}
+                  ? 'تاقیکردنەوەی ئاستی قسەکردن بە دەنگ (١,٠٠٠ قۆناغ)'
+                  : 'Voice Speaking Level Assessment (1,000 Stages)'}
               </h1>
             </div>
             <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
               {isAr
                 ? `سجل صوتك باللغة ${
                     targetLang === 'en' ? 'الإنجليزية' : targetLang === 'ar' ? 'العربية الفصحى' : 'الكوردية'
-                  }، وسيقوم الذكاء الاصطناعي بالاستماع لمخارج الحروف بدقة وتحليل الطلاقة والقواعد لمنحك التقييم الشامل.`
+                  }، وتخطّ المراحل مرحلة تلو الأخرى بفتح الأقفال لتحقيق الطلاقة العالمية التامة.`
                 : isKu
                 ? `دەنگت تۆمار بکە بە ${
                     targetLang === 'en' ? 'ئینگلیزی' : targetLang === 'ar' ? 'عەرەبی' : 'کوردی'
-                  }، زیرەکی دەستکرد بە وریایی گوێت لێ دەگرێت و ئاستی بێژەکردن، ڕەوانی، ڕێزمان، و وشەکانت پێ دەڵێت.`
+                  }، قۆناغ بە قۆناغ قوفڵەکان بکەرەوە و بە سەربەرزی بەرەو سەروەریی زمانی لە نێو ١,٠٠٠ قۆناغ هەنگاو بنێ.`
                 : `Record your voice in ${
                     targetLang === 'en' ? 'English' : targetLang === 'ar' ? 'Arabic' : 'Kurdish'
-                  }. AI will evaluate your phonetics, rhythm, fluency, and CEFR level with comprehensive diagnostics.`}
+                  }. Unlock each progressive stage step-by-step toward total spoken mastery across 1,000 levels.`}
             </p>
           </div>
 
-          {/* Controls: Target Language Switcher & Exam Mode */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start md:self-center">
-            {/* Direct Target Speaking Language Selector */}
-            {onSelectTargetLang && (
-              <div className="flex items-center bg-slate-950/80 border border-slate-800 p-1 rounded-2xl shadow-inner gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => onSelectTargetLang('en')}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    targetLang === 'en'
-                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                  }`}
-                  title="Practice in English"
-                >
-                  <span>🇬🇧</span>
-                  <span>English</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectTargetLang('ku')}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    targetLang === 'ku'
-                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                  }`}
-                  title="مەشق بە زمانی کوردی"
-                >
-                  <span>☀️</span>
-                  <span>کوردی</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectTargetLang('ar')}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    targetLang === 'ar'
-                      ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-                  }`}
-                  title="التدريب باللغة العربية"
-                >
-                  <span>🇸🇦</span>
-                  <span>العربية</span>
-                </button>
-              </div>
-            )}
-
-            {/* Mode Switcher */}
-            <div className="flex bg-slate-950/70 border border-slate-800 p-1 rounded-2xl">
+          {/* View Mode Toggle: Speaking Studio vs Stages Map matching Screenshot 2 & 3 */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
+            <div className="flex bg-slate-950/80 border border-slate-800 p-1 rounded-2xl shadow-inner">
               <button
-                onClick={() => {
-                  setExamMode('full_exam');
-                  setResult(null);
-                }}
-                className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  examMode === 'full_exam'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-bold'
+                type="button"
+                onClick={() => setViewMode('studio')}
+                className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'studio'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {isAr
-                  ? 'الامتحان (100 مرحلة)'
-                  : isKu
-                  ? 'تاقیکردنەوە (١٠٠ قۆناغ)'
-                  : 'Comprehensive (100)'}
+                <Mic className="w-3.5 h-3.5" />
+                <span>{isAr ? 'الاستوديو الصوتي' : isKu ? 'شاشەی دەنگ' : 'Voice Studio'}</span>
               </button>
+
               <button
-                onClick={() => {
-                  setExamMode('quick_test');
-                  setResult(null);
-                }}
-                className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  examMode === 'quick_test'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-bold'
+                type="button"
+                onClick={() => setViewMode('roadmap')}
+                className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'roadmap'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {isAr ? 'الاختبار السريع' : isKu ? 'تاقیکردنەوەی خێرا' : 'Quick Test'}
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>{isAr ? 'خريطة المراحل' : isKu ? 'نەخشەی قۆناغەکان' : 'Stages Map'}</span>
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={onOpenStore}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-yellow-500/10 hover:from-amber-500/25 hover:to-yellow-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs shadow-inner cursor-pointer transition-all active:scale-95 group"
+              title={isKu ? 'فرۆشگای دراوەکان (کرتە بکە)' : isAr ? 'متجر العملات (اضغط للفتح)' : 'Gold Coins Store (Click)'}
+            >
+              <span className="group-hover:scale-125 transition-transform">🪙</span>
+              <span>{coins.toLocaleString()}</span>
+              <span className="text-[10px] text-amber-400 font-bold bg-amber-500/20 px-1 rounded-md">
+                {isKu ? 'فرۆشگا' : isAr ? 'متجر' : 'Shop'}
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* 100 Stages Browser Toggle Bar */}
+        {/* 1,000 Stages Progression Bar */}
+        {examMode === 'full_exam' && (
+          <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                  <span>{currentWorld.icon}</span>
+                  <span>{isKu ? currentWorld.titleKu : currentWorld.titleEn}</span>
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="text-emerald-400 font-extrabold">
+                  {isKu
+                    ? `قۆناغی کراوە: ${unlockedStage} لە ١,٠٠٠`
+                    : isAr
+                    ? `المراحل المفتوحة: ${unlockedStage} من ١,٠٠٠`
+                    : `Unlocked: Stage ${unlockedStage} / 1,000`}
+                </span>
+              </div>
+              <div className="font-bold text-slate-300">
+                {progressPercent}%
+              </div>
+            </div>
+            {/* Visual Progress Track */}
+            <div className="w-full h-2 rounded-full bg-slate-950 border border-slate-800 overflow-hidden relative">
+              <div
+                className="h-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400 transition-all duration-500 shadow-sm"
+                style={{ width: `${Math.max(0.5, parseFloat(progressPercent))}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 1,000 Stages Browser Toggle Bar */}
         {examMode === 'full_exam' && testSteps.length > 0 && (
           <div className="mt-6 pt-5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -796,51 +1008,130 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
               </span>
             </div>
 
-            <button
-              onClick={() => setShowStagesBrowser(!showStagesBrowser)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow-sm"
-            >
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
-              <span>
-                {showStagesBrowser
-                  ? isAr
-                    ? 'إغلاق دليل المراحل'
+            <div className="flex items-center gap-2">
+              {/* Jump to current active stage button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const targetIdx = testSteps.findIndex((s) => s.id === unlockedStage);
+                  if (targetIdx !== -1) {
+                    setCurrentStepIndex(targetIdx);
+                    setResult(null);
+                    setRecordedAudioBase64(null);
+                    setLiveTranscript('');
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isKu ? `بڕۆ بۆ قۆناغی کراوە (#${unlockedStage})` : isAr ? `الانتقال للمرحلة المفتوحة (#${unlockedStage})` : `Go to Active (#${unlockedStage})`}</span>
+              </button>
+
+              <button
+                onClick={() => setShowStagesBrowser(!showStagesBrowser)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow-sm"
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  {showStagesBrowser
+                    ? isAr
+                      ? 'إغلاق دليل المراحل'
+                      : isKu
+                      ? 'داخستنی ڕێبەری قۆناغەکان'
+                      : 'Close Stage Browser'
+                    : isAr
+                    ? `استعراض عوالم ومراحل (${testSteps.length})`
                     : isKu
-                    ? 'داخستنی ڕێبەری قۆناغەکان'
-                    : 'Close Stage Browser'
-                  : isAr
-                  ? `استعراض كافة المراحل (${testSteps.length})`
-                  : isKu
-                  ? `پیشاندانی هەموو قۆناغەکان (${testSteps.length})`
-                  : `Browse All ${testSteps.length} Stages`}
-              </span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showStagesBrowser ? 'rotate-180' : ''}`} />
-            </button>
+                    ? `پیشاندانی گشت قۆناغەکان (${testSteps.length})`
+                    : `Browse 1,000 Stages`}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showStagesBrowser ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Expandable 100-Stage Grid Browser */}
+        {/* Expandable 1,000-Stage Grid Browser with 10 World Tabs */}
         {examMode === 'full_exam' && showStagesBrowser && testSteps.length > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-800 space-y-4 animate-in fade-in duration-200">
+            {/* Locked notice alert */}
+            {lockedStageNotice && (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>{lockedStageNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLockedStageNotice(null)}
+                  className="text-amber-400 hover:text-white text-xs px-2 py-0.5"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* 10 World Tabs Bar */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                {isKu ? 'جیهانەکانی فێربوون (١٠ جیهان):' : isAr ? 'عوالم التعلم (١٠ عوالم):' : 'Learning Worlds (10 Worlds):'}
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => setSelectedWorldId(0)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    selectedWorldId === 0
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md'
+                      : 'bg-slate-950/80 border border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {isKu ? 'گشت قۆناغەکان (١-١,٠٠٠)' : isAr ? 'كافة المراحل (1-1000)' : 'All 1,000 Stages'}
+                </button>
+                {WORLDS_CONFIG.map((world) => {
+                  const isWorldActive = selectedWorldId === world.id;
+                  const isWorldUnlocked = unlockedStage >= world.range[0];
+                  return (
+                    <button
+                      key={world.id}
+                      type="button"
+                      onClick={() => setSelectedWorldId(world.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                        isWorldActive
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md font-black'
+                          : isWorldUnlocked
+                          ? 'bg-slate-950/80 border border-slate-800 text-slate-300 hover:text-white'
+                          : 'bg-slate-950/40 border border-slate-900 text-slate-600'
+                      }`}
+                    >
+                      <span>{world.icon}</span>
+                      <span>{isKu ? world.titleKu.split(':')[1] || world.titleKu : world.titleEn.split(':')[1] || world.titleEn}</span>
+                      {!isWorldUnlocked && <Lock className="w-3 h-3 text-slate-600" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Filter Bar: Level tabs + Search */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               {/* Level Tabs */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {[
-                  { id: 'all', label: isAr ? 'الكل (100)' : isKu ? 'هەموو (١٠٠)' : 'All (100)' },
-                  { id: 'A1', label: 'A1 (1-15)' },
-                  { id: 'A2', label: 'A2 (16-35)' },
-                  { id: 'B1', label: 'B1 (36-55)' },
-                  { id: 'B2', label: 'B2 (56-75)' },
-                  { id: 'C1', label: 'C1 (76-90)' },
-                  { id: 'C2', label: 'C2 (91-100)' },
+                  { id: 'all', label: isAr ? 'الكل' : isKu ? 'گشت ئاستەکان' : 'All Levels' },
+                  { id: 'A1', label: 'A1' },
+                  { id: 'A2', label: 'A2' },
+                  { id: 'B1', label: 'B1' },
+                  { id: 'B2', label: 'B2' },
+                  { id: 'C1', label: 'C1' },
+                  { id: 'C2', label: 'C2' },
                 ].map((lvl) => (
                   <button
                     key={lvl.id}
                     onClick={() => setLevelFilter(lvl.id)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       levelFilter === lvl.id
-                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm font-bold'
                         : 'bg-slate-950/80 border border-slate-800 text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -849,29 +1140,30 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 ))}
               </div>
 
-              {/* Search stage */}
-              <div className="relative w-full sm:w-60">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute top-2.5 right-3 pointer-events-none" />
+              {/* Search stage by number or title */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute top-2.5 right-3 rtl:right-auto rtl:left-3 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isAr ? 'بحث برقم أو اسم المرحلة...' : isKu ? 'گەڕان بە ژمارە یان ناوی قۆناغ...' : 'Search stage # or title...'}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pr-9 pl-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                  placeholder={isAr ? 'بحث برقم المرحلة (مثلاً: 250)...' : isKu ? 'گەڕان بە ژمارەی قۆناغ (نموونە: 250)...' : 'Search stage # (e.g. 250)...'}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
-            {/* Stages Scrollable Grid */}
-            <div className="max-h-72 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 scrollbar-thin">
-              {filteredSteps.map((step, idx) => {
+            {/* Stages Scrollable Grid with Lock & Star states */}
+            <div className="max-h-80 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 scrollbar-thin">
+              {filteredSteps.map((step) => {
                 const globalIndex = testSteps.findIndex((s) => s.id === step.id);
                 const isCurrent = globalIndex === currentStepIndex;
-                const isCompleted = completedStageIds.has(step.id);
+                const isUnlocked = step.id <= unlockedStage;
+                const score = completedStageScores[step.id];
+                const isCompleted = isUnlocked && (score !== undefined || step.id < unlockedStage);
+
                 const titleStr =
-                  targetLang === 'ar'
-                    ? step.titleAr || step.title
-                    : isAr
+                  isAr
                     ? step.titleAr || step.title
                     : isKu
                     ? step.titleKu || step.title
@@ -880,31 +1172,74 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 return (
                   <button
                     key={step.id}
+                    type="button"
                     onClick={() => {
+                      if (!isUnlocked) {
+                        setLockedStageNotice(
+                          isKu
+                            ? `🔒 قۆناغی #${step.id} قوفڵ کراوە! دەبێت سەرەتا قۆناغی #${step.id - 1} بە سەرکەوتوویی تەواو بکەیت بۆ ئەوەی کراوە بێت.`
+                            : isAr
+                            ? `🔒 المرحلة #${step.id} مقفلة! يجب إتمام المرحلة #${step.id - 1} أولاً لفتحها.`
+                            : `🔒 Stage #${step.id} is locked! Complete stage #${step.id - 1} first.`
+                        );
+                        return;
+                      }
                       setCurrentStepIndex(globalIndex);
                       setResult(null);
                       setRecordedAudioBase64(null);
                       setLiveTranscript('');
                     }}
-                    className={`p-2 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                    className={`p-2.5 rounded-2xl border text-start transition-all relative flex flex-col justify-between gap-1.5 ${
                       isCurrent
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/40 shadow-lg'
-                        : isCompleted
-                        ? 'bg-slate-900 border-slate-700/80 text-slate-200 hover:border-slate-600'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/40 shadow-lg cursor-pointer'
+                        : isUnlocked
+                        ? isCompleted
+                          ? 'bg-slate-900/90 border-emerald-500/40 text-slate-200 hover:border-emerald-400 cursor-pointer'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer'
+                        : 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-1 mb-1 text-[10px] font-bold">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold">
                       <span className="flex items-center gap-1">
                         #{step.id}
-                        {isCompleted && <Check className="w-3 h-3 text-emerald-400 inline" />}
+                        {isCompleted ? (
+                          <Check className="w-3 h-3 text-emerald-400 inline" />
+                        ) : !isUnlocked ? (
+                          <Lock className="w-3 h-3 text-slate-500 inline" />
+                        ) : null}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] font-mono">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${
+                        isUnlocked ? 'bg-slate-800 text-slate-300' : 'bg-slate-900 text-slate-600'
+                      }`}>
                         {step.level}
                       </span>
                     </div>
+
                     <div className="text-[11px] font-medium leading-tight truncate" title={titleStr}>
                       {titleStr}
+                    </div>
+
+                    {/* Footer indicator on stage card */}
+                    <div className="flex items-center justify-between text-[9px] pt-1 border-t border-slate-800/40">
+                      {isCompleted ? (
+                        <span className="text-emerald-400 font-bold flex items-center gap-0.5">
+                          <Star className="w-2.5 h-2.5 fill-emerald-400 text-emerald-400" />
+                          <span>{score ? `${score}%` : 'تەواوکراو'}</span>
+                        </span>
+                      ) : isCurrent ? (
+                        <span className="text-emerald-300 font-extrabold animate-pulse">
+                          {isKu ? 'ئێستا چالاکە' : isAr ? 'نشط الآن' : 'Active'}
+                        </span>
+                      ) : isUnlocked ? (
+                        <span className="text-slate-400">
+                          {isKu ? 'کراوەتەوە' : isAr ? 'مفتوحة' : 'Unlocked'}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>قوفڵ</span>
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -914,10 +1249,51 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
         )}
       </div>
 
-      {/* Main Testing Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left / Main Question & Recorder Box (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
+      {/* Main Testing Card or Stages Map Road matching Screenshot 2 & 3 */}
+      {viewMode === 'roadmap' ? (
+        <div className="w-full space-y-4 animate-in fade-in duration-300">
+          <StagesMapRoad
+            unlockedStage={unlockedStage}
+            completedScores={completedStageScores}
+            coins={coins}
+            uiLang={uiLang}
+            onOpenStore={onOpenStore}
+            onClose={() => setViewMode('studio')}
+            onSelectStage={(stageId) => {
+              // Ensure test steps list is available
+              let stepsList = testSteps;
+              if (!stepsList || stepsList.length === 0) {
+                stepsList = get1000TestStepsForLanguage(targetLang);
+                setTestSteps(stepsList);
+              }
+              const targetIdx = stepsList.findIndex((s) => s.id === stageId);
+              if (targetIdx !== -1) {
+                setCurrentStepIndex(targetIdx);
+              } else {
+                setCurrentStepIndex(Math.max(0, stageId - 1));
+              }
+              setViewMode('studio');
+              if (onNavigateTab) {
+                onNavigateTab('assessment');
+              }
+              setResult(null);
+              setRecordedAudioBase64(null);
+              setLiveTranscript('');
+              setTimeout(() => {
+                const el = document.getElementById('stage-practice-card');
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }, 80);
+            }}
+          />
+        </div>
+      ) : (
+        <div className={`grid grid-cols-1 ${result || isEvaluating ? 'lg:grid-cols-12' : 'max-w-3xl mx-auto'} gap-6 animate-in fade-in duration-300 w-full`}>
+        {/* Left / Main Question & Recorder Box */}
+        <div id="stage-practice-card" className={`${result || isEvaluating ? 'lg:col-span-7' : 'w-full'} space-y-4`}>
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 backdrop-blur-sm relative">
             {/* Stage Quick Navigation Bar */}
             {examMode === 'full_exam' && testSteps.length > 0 && (
@@ -944,27 +1320,39 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                       ? `قۆناغی ${currentStep.id} لە ${testSteps.length}`
                       : `Stage ${currentStep.id} of ${testSteps.length}`}
                   </span>
-                  {/* Jump select dropdown */}
+                  {/* Jump select dropdown with locked stages */}
                   <select
                     value={currentStepIndex}
                     onChange={(e) => {
-                      setCurrentStepIndex(Number(e.target.value));
+                      const chosenIdx = Number(e.target.value);
+                      const chosenStep = testSteps[chosenIdx];
+                      if (chosenStep && chosenStep.id > unlockedStage) {
+                        setLockedStageNotice(
+                          isKu
+                            ? `🔒 قۆناغی #${chosenStep.id} قوفڵ کراوە! تکایە قۆناغی پێشوو تەواو بکە.`
+                            : `🔒 Stage #${chosenStep.id} is locked!`
+                        );
+                        return;
+                      }
+                      setCurrentStepIndex(chosenIdx);
                       setResult(null);
                       setRecordedAudioBase64(null);
                       setLiveTranscript('');
                     }}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] sm:max-w-[200px] truncate"
                   >
-                    {testSteps.map((s, idx) => (
-                      <option key={s.id} value={idx}>
+                    {testSteps.slice(0, Math.min(testSteps.length, unlockedStage + 20)).map((s, idx) => (
+                      <option key={s.id} value={idx} disabled={s.id > unlockedStage}>
+                        {s.id > unlockedStage ? '🔒 ' : '✓ '}
                         #{s.id} ({s.level}) - {targetLang === 'ar' ? (s.titleAr || s.title) : isKu ? (s.titleKu || s.title) : (s.titleEn || s.title)}
+                        {s.id > unlockedStage ? ' (قوفڵ)' : ''}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <button
-                  disabled={currentStepIndex >= testSteps.length - 1}
+                  disabled={currentStep.id >= unlockedStage || currentStepIndex >= testSteps.length - 1}
                   onClick={() => {
                     setCurrentStepIndex((prev) => Math.min(testSteps.length - 1, prev + 1));
                     setResult(null);
@@ -972,9 +1360,25 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     setLiveTranscript('');
                   }}
                   className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 transition-colors cursor-pointer"
+                  title={currentStep.id >= unlockedStage ? 'دەبێت سەرەتا ئەم قۆناغە تەواو بکەیت' : ''}
                 >
                   <span>{isAr ? 'المرحلة التالية' : isKu ? 'قۆناغی داهاتوو' : 'Next'}</span>
-                  <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                  {currentStep.id >= unlockedStage ? (
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                  ) : (
+                    <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                  )}
+                </button>
+
+                {/* Direct Shortcut to Open Winding Stages Map */}
+                <button
+                  type="button"
+                  onClick={() => setViewMode('roadmap')}
+                  className="px-2.5 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title={isAr ? 'عرض خريطة المراحل' : isKu ? 'پیشاندانی نەخشەی قۆناغەکان' : 'View Stages Map'}
+                >
+                  <MapIcon className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="hidden sm:inline">{isAr ? 'الخريطة' : isKu ? 'نەخشە' : 'Map'}</span>
                 </button>
               </div>
             )}
@@ -1042,29 +1446,154 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-400 mb-4 flex items-center justify-between gap-2.5">
               <div className="flex items-start gap-2.5">
                 <BookOpen className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-semibold text-slate-200">
-                    {isAr ? 'بداية الجملة المقترحة:' : isKu ? 'دەستپێکی نموونەیی:' : 'Starting phrase:'}
-                  </span>{' '}
-                  <span className="text-emerald-300 italic">{stepPromptPhrase}</span>
+                <div className="space-y-1">
+                  <div className="text-[11px] font-semibold text-slate-300">
+                    {isAr ? 'بداية الجملة المقترحة للبدء:' : isKu ? 'دەستپێکی نموونەیی بۆ دەستپێکردن:' : 'Recommended starting phrase:'}
+                  </div>
+                  <div
+                    dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                    style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                    className={`text-emerald-300 font-bold text-sm ${targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'}`}
+                  >
+                    "{stepPromptPhrase}"
+                  </div>
+                  {stepPromptTranslation && stepPromptTranslation !== stepPromptPhrase && (
+                    <div
+                      dir="rtl"
+                      style={{ direction: 'rtl', textAlign: 'right' }}
+                      className="text-[11px] text-slate-400 force-rtl text-right pt-0.5"
+                    >
+                      {stepPromptTranslation}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handlePlayPrompt(stepPromptPhrase)}
-                disabled={isPlayingAudio}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold shrink-0 transition-colors cursor-pointer disabled:opacity-50"
-                title={isAr ? 'استمع لبداية الجملة' : isKu ? 'خوێندنەوەی دەستپێکی ڕستە' : 'Listen to starter'}
-              >
-                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{isAr ? 'استمع' : isKu ? 'گوێبگرە' : 'Listen'}</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                {/* Slow Audio Speed Toggle (Part of Gamification Store) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!slowAudioUnlocked) {
+                      if (onOpenStore) onOpenStore();
+                    } else {
+                      setAudioSlowMode((prev) => (prev === 1.0 ? 0.75 : prev === 0.75 ? 0.5 : 1.0));
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+                    !slowAudioUnlocked
+                      ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+                      : audioSlowMode < 1.0
+                      ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 ring-1 ring-cyan-400/40'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title={
+                    !slowAudioUnlocked
+                      ? isKu
+                        ? 'خاوکردنەوەی دەنگ قوفڵکراوە (کرتە بکە بۆ کردنەوە لە فرۆشگا)'
+                        : 'Slow audio is locked (Click to unlock in Store)'
+                      : `Playback speed: ${audioSlowMode}x`
+                  }
+                >
+                  <span>🐢</span>
+                  <span>{slowAudioUnlocked ? `${audioSlowMode}x` : '0.75x 🔒'}</span>
+                </button>
+
+                {/* Normal audio listen button */}
+                <button
+                  type="button"
+                  onClick={() => handlePlayPrompt(stepPromptPhrase, audioSlowMode)}
+                  disabled={isPlayingAudio}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold shrink-0 transition-colors cursor-pointer disabled:opacity-50"
+                  title={isAr ? 'استمع لبداية الجملة' : isKu ? 'خوێندنەوەی دەستپێکی ڕستە' : 'Listen to starter'}
+                >
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{isAr ? 'استمع' : isKu ? 'گوێبگرە' : 'Listen'}</span>
+                </button>
+
+                {/* Hint tool button (Part of Gamification Store) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHintActive) {
+                      setIsHintActive(false);
+                      return;
+                    }
+                    if (hintsCount > 0) {
+                      if (onUseHint) onUseHint();
+                      setIsHintActive(true);
+                    } else {
+                      if (onOpenStore) onOpenStore();
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    isHintActive
+                      ? 'bg-amber-500/25 border-amber-500/50 text-amber-300 ring-1 ring-amber-400/40'
+                      : hintsCount > 0
+                      ? 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-amber-300'
+                  }`}
+                  title={isKu ? `یارمەتی بێژەکردن (ماوە: ${hintsCount})` : `Phonetic Hint (Available: ${hintsCount})`}
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isKu ? 'یارمەتی' : isAr ? 'تلميح' : 'Hint'}</span>
+                  <span className="text-[10px] font-bold px-1 rounded bg-amber-400/20">{hintsCount}</span>
+                </button>
+              </div>
             </div>
+
+            {/* Interactive Phonetic Hint Card */}
+            {isHintActive && (
+              <div className="mb-4 p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-slate-950 to-slate-900 border border-amber-500/30 text-xs space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between text-amber-300 font-bold">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-400" />
+                    <span>{isKu ? 'ڕێبەری یارمەتیدەری بێژەکردن (Phonetic Hint)' : isAr ? 'دليل مخارج الحروف والتلميح الصوتي' : 'Phonetic Articulation Hint'}</span>
+                  </div>
+                  <button
+                    onClick={() => setIsHintActive(false)}
+                    className="p-1 rounded-lg hover:bg-amber-500/20 text-amber-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-slate-300">
+                  <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                      {isKu ? 'کێش و جەختی بڕگەکان (Syllable Cadence):' : 'Syllable Cadence & Stress:'}
+                    </span>
+                    <p className="font-mono text-emerald-300 font-bold text-sm tracking-wide">
+                      {stepPromptPhrase.split(' ').map((word, i) => (
+                        <span key={i} className="inline-block mr-2 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">
+                          {word}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-start gap-2">
+                    <span className="text-base">👄</span>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-bold text-amber-300 block">
+                        {isKu ? 'ڕێنمایی شوێنی زمان و لێوەکان:' : isAr ? 'موضع اللسان والشفتين للنطق السليم:' : 'Mouth & Tongue Articulation:'}
+                      </span>
+                      <p className="text-slate-300 text-xs leading-relaxed">
+                        {isKu
+                          ? 'بۆ پیتەکانی (th، v، w)، لێوی خوارەوە و نووکی زمان بە وریایی بەکاربهێنە. وشەکان مەپچڕێنە و بزوێنەکان بە کێشێکی سروشتی بە دەنگ بخوێنەوە.'
+                          : isAr
+                          ? 'انتبه لمخارج الحروف المركبة، واجعل تدفق الهواء متزناً بين الكلمات دون توقف مفاجئ.'
+                          : 'Connect words smoothly with steady breath; place tongue tip gently between teeth for /ð/ and /θ/ sounds.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Sample Ideal Answer Dropdown / Panel */}
             {showSampleAnswer && sampleAnswerText && (
-              <div className="mb-4 p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 text-xs space-y-1.5 animate-in fade-in">
+              <div className="mb-4 p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 text-xs space-y-2 animate-in fade-in">
                 <div className="flex items-center justify-between font-bold text-cyan-300">
                   <span className="flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
@@ -1079,9 +1608,24 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     <span>{isAr ? 'استمع للنموذج' : isKu ? 'گوێ لە نموونەکە بگرە' : 'Listen'}</span>
                   </button>
                 </div>
-                <p className="text-slate-200 leading-relaxed italic">
+                <div
+                  dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                  style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                  className={`text-slate-100 font-semibold text-sm leading-relaxed p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 ${
+                    targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'
+                  }`}
+                >
                   "{sampleAnswerText}"
-                </p>
+                </div>
+                {sampleAnswerTranslation && sampleAnswerTranslation !== sampleAnswerText && (
+                  <div
+                    dir="rtl"
+                    style={{ direction: 'rtl', textAlign: 'right' }}
+                    className="text-slate-400 text-xs leading-relaxed force-rtl text-right pt-0.5"
+                  >
+                    {sampleAnswerTranslation}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1275,7 +1819,13 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-200 italic font-medium">
+                  <p
+                    dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                    style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                    className={`text-sm text-slate-200 italic font-medium ${
+                      targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'
+                    }`}
+                  >
                     "{liveTranscript || (isAr ? 'تحدث الآن، وسيظهر كلامك هنا...' : isKu ? 'قسە بکە، لێرە دەردەکەوێت...' : 'Start speaking...')}"
                   </p>
                 )}
@@ -1284,8 +1834,9 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
           </div>
         </div>
 
-        {/* Right Column: In-depth Evaluation Result (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* Right Column: In-depth Evaluation Result (Only rendered when evaluating or result exists) */}
+        {(isEvaluating || result) && (
+          <div className="lg:col-span-5 space-y-4">
           {isEvaluating ? (
             <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-slate-900/60 border border-slate-800 rounded-3xl p-8 text-center backdrop-blur-sm">
               <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4 animate-bounce">
@@ -1303,10 +1854,52 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
               </p>
             </div>
           ) : result ? (
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-5 animate-in fade-in duration-300 backdrop-blur-sm">
+            <div
+              key={result.timestamp || `${result.overallScore}-${result.cefrLevel}-${result.recognizedText?.slice(0, 15)}`}
+              className="relative bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-5 animate-score-reveal backdrop-blur-sm shadow-xl overflow-hidden"
+            >
+              {/* Subtle radiant background glow upon score reveal */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none animate-score-glow" />
+
+              {/* Dynamic Gold Coins Earned Reward Banner */}
+              {earnedCoinNotice && (
+                <div className="relative z-10 flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 border border-amber-500/40 text-amber-300 shadow-lg shadow-amber-500/10">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl animate-bounce">🪙</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-black">
+                          +{earnedCoinNotice.amount} {isKu ? 'دراوی زێڕینت بەدەستهێنا!' : isAr ? 'عملة ذهبية مكتسبة!' : 'Gold Coins Earned!'}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/25 text-amber-200 font-extrabold">
+                          {earnedCoinNotice.score}%
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-amber-400/90 block">
+                        {isKu
+                          ? 'دراوەکان بۆ باڵانست زیاد کران و دەتوانیت لە فرۆشگا بەکاریان بهێنیت'
+                          : isAr
+                          ? 'تمت إضافة العملات لرصيدك ويمكنك استخدامها في المتجر'
+                          : 'Coins added to your balance for store power-ups & tracks'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {onOpenStore && (
+                    <button
+                      type="button"
+                      onClick={onOpenStore}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer shrink-0 active:scale-95"
+                    >
+                      {isKu ? 'فرۆشگا' : isAr ? 'المتجر' : 'Shop'}
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* CEFR Level Banner */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div>
+              <div className="relative z-10 flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="animate-score-badge">
                   <span className="text-xs text-slate-400 block font-medium">
                     {isAr
                       ? 'المستوى المعتمد (CEFR):'
@@ -1325,26 +1918,26 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     <span className="text-xs text-slate-300 font-semibold">
                       {result.cefrLevel === 'C1' || result.cefrLevel === 'C2'
                         ? isAr
-                          ? 'طلاقة تامة ومستوى متقدم (Fluent / Advanced)'
+                          ? 'طلاقة تامة ومستوى متقدم'
                           : isKu
-                          ? 'زۆر باڵا و ڕەوان (Fluent / Advanced)'
+                          ? 'زۆر باڵا و ڕەوان'
                           : 'Fluent / Advanced'
                         : result.cefrLevel === 'B2'
                         ? isAr
-                          ? 'مستقل وفوق المتوسط (Upper Intermediate)'
+                          ? 'مستقل وفوق المتوسط'
                           : isKu
-                          ? 'باش و سەربەخۆ (Upper Intermediate)'
+                          ? 'باش و سەربەخۆ'
                           : 'Upper Intermediate'
                         : result.cefrLevel === 'B1'
                         ? isAr
-                          ? 'مستوى متوسط (Intermediate)'
+                          ? 'مستوى متوسط'
                           : isKu
-                          ? 'ئاستی ناوەند (Intermediate)'
+                          ? 'ئاستی ناوەند'
                           : 'Intermediate'
                         : isAr
-                        ? 'مستوى أساسي / مبتدئ (Elementary / Basic)'
+                        ? 'مستوى أساسي / مبتدئ'
                         : isKu
-                        ? 'دەستپێکەر بەرەو پێشچوو (Elementary)'
+                        ? 'دەستپێکەر بەرەو پێشچوو'
                         : 'Elementary / Basic'}
                     </span>
                   </div>
@@ -1354,7 +1947,7 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 {(() => {
                   const visuals = getScoreVisuals(result.overallScore);
                   return (
-                    <div className="text-center flex flex-col items-center">
+                    <div className="text-center flex flex-col items-center animate-score-meter">
                       <div className={`w-16 h-16 rounded-full border-4 flex flex-col items-center justify-center shadow-inner transition-all ${visuals.circle}`}>
                         <span className="text-xl font-black">
                           {result.overallScore}
@@ -1381,28 +1974,28 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 {[
                   {
                     nameAr: 'مخارج الحروف والنطق',
-                    nameKu: 'بێژەکردن (Pronunciation)',
+                    nameKu: 'بێژەکردن',
                     nameEn: 'Pronunciation',
                     val: result.scores.pronunciation,
                     color: 'bg-emerald-500',
                   },
                   {
                     nameAr: 'الطلاقة والانسيابية',
-                    nameKu: 'ڕەوانی دەربڕین (Fluency)',
+                    nameKu: 'ڕەوانی دەربڕین',
                     nameEn: 'Fluency',
                     val: result.scores.fluency,
                     color: 'bg-teal-500',
                   },
                   {
                     nameAr: 'الثروة اللغوية',
-                    nameKu: 'دەوڵەمەندی وشە (Vocabulary)',
+                    nameKu: 'دەوڵەمەندی وشە',
                     nameEn: 'Vocabulary',
                     val: result.scores.vocabulary,
                     color: 'bg-cyan-500',
                   },
                   {
                     nameAr: 'سلامة القواعد والتركيب',
-                    nameKu: 'ڕێزمانی دروست (Grammar)',
+                    nameKu: 'ڕێزمانی دروست',
                     nameEn: 'Grammar',
                     val: result.scores.grammar,
                     color: 'bg-blue-500',
@@ -1417,12 +2010,61 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                       <div
-                        className={`h-full ${item.color} rounded-full transition-all duration-700`}
+                        className={`h-full ${item.color} rounded-full transition-all duration-1000 ease-out`}
                         style={{ width: `${item.val}%` }}
                       />
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Real Audio Capture & Recognized User Voice Speech */}
+              <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                    <Mic className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{isAr ? 'ما سمعه الذكاء الاصطناعي من صوتك بدقة:' : isKu ? 'ئەوەی زیرەکی دەستکرد بە وردی لە دەنگت بیستی:' : 'Accurate Speech Recognized from Your Voice:'}</span>
+                  </div>
+                  {recordedAudioBase64 && (
+                    <button
+                      type="button"
+                      onClick={handlePlayUserVoice}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                        isPlayingUserVoice
+                          ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse'
+                          : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                      }`}
+                      title={isAr ? 'استمع لتسجيل صوتك' : isKu ? 'گوێ لە تۆماری دەنگی خۆت بگرەوە' : 'Play My Spoken Voice'}
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>
+                        {isPlayingUserVoice
+                          ? (isAr ? 'جارِ التشغيل...' : isKu ? 'لێدەدرێت...' : 'Playing...')
+                          : (isAr ? 'استمع لتسجيلك' : isKu ? 'گوێ لە تۆمارەکەت بگرەوە' : 'Play My Voice')}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                  style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                  className={`p-3.5 rounded-xl bg-slate-900/90 border border-slate-750 text-sm font-semibold text-slate-100 leading-relaxed ${
+                    targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'
+                  }`}
+                >
+                  {result.recognizedText && result.recognizedText.trim().length > 0 ? (
+                    <span className="text-emerald-300">"{result.recognizedText}"</span>
+                  ) : (
+                    <span className="text-slate-400 italic font-normal text-xs">
+                      {isAr
+                        ? 'لم يتم التقاط صوت واضح؛ يرجى التحدث بنبرة مسموعة والتسجيل مرة أخرى'
+                        : isKu
+                        ? 'هیچ دەنگێکی ڕوون نەبیسترا؛ تکایە بە دەنگێکی بیستراو و لە نزیک مایکرۆفۆن قسە بکە'
+                        : 'No clear speech detected; please speak clearly closer to microphone'}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Word-by-word pronunciation highlights with instant audio playback */}
@@ -1466,7 +2108,11 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div
+                    dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                    style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl' }}
+                    className={`flex flex-wrap gap-2 ${targetLang === 'en' ? 'force-ltr justify-start' : 'force-rtl justify-start'}`}
+                  >
                     {result.wordsAnalysis.map((w, i) => {
                       const cleanW = w.word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
                       const isCurrentPlaying = playingWord === cleanW;
@@ -1589,11 +2235,27 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                   {result.corrections.map((corr, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs space-y-1"
+                      className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs space-y-1.5"
                     >
-                      <div className="text-red-400 line-through">"{corr.original}"</div>
-                      <div className="text-emerald-300 font-semibold">✓ "{corr.improved}"</div>
-                      <div className="text-slate-400 text-[11px]">
+                      <div
+                        dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                        style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                        className={`text-red-400 line-through ${targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'}`}
+                      >
+                        "{corr.original}"
+                      </div>
+                      <div
+                        dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                        style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl', textAlign: targetLang === 'en' ? 'left' : 'right' }}
+                        className={`text-emerald-300 font-bold ${targetLang === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'}`}
+                      >
+                        ✓ "{corr.improved}"
+                      </div>
+                      <div
+                        dir="rtl"
+                        style={{ direction: 'rtl', textAlign: 'right' }}
+                        className="text-slate-400 text-[11px] pt-1 border-t border-amber-500/20 force-rtl text-right"
+                      >
                         {isAr
                           ? corr.explanationArabic || corr.explanationEnglish
                           : isKu
@@ -1605,8 +2267,62 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 </div>
               )}
 
+              {/* Level Pass / Fail Progression Banner & Next Stage Button */}
+              {result.overallScore >= 60 ? (
+                <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span className="font-bold text-xs sm:text-sm">
+                      {isKu
+                        ? `🎉 پیرۆزە! قۆناغی #${currentStep.id}ـت بە سەرکەوتوویی تێپەڕاند!`
+                        : isAr
+                        ? `🎉 تهانينا! لقد اجتزت المرحلة #${currentStep.id} بنجاح!`
+                        : `🎉 Congratulations! You successfully passed Stage #${currentStep.id}!`}
+                    </span>
+                  </div>
+
+                  {currentStepIndex < testSteps.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextIdx = currentStepIndex + 1;
+                        if (nextIdx < testSteps.length) {
+                          setCurrentStepIndex(nextIdx);
+                          setResult(null);
+                          setRecordedAudioBase64(null);
+                          setLiveTranscript('');
+                          window.scrollTo({ top: 180, behavior: 'smooth' });
+                        }
+                      }}
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <span>
+                        {isKu
+                          ? `بڕۆ بۆ قۆناغی داهاتوو (قۆناغی #${currentStep.id + 1}) 🚀`
+                          : isAr
+                          ? `الانتقال إلى المرحلة التالية (#${currentStep.id + 1}) 🚀`
+                          : `Advance to Next Stage (#${currentStep.id + 1}) 🚀`}
+                      </span>
+                      <ChevronLeft className="w-4 h-4 rtl:rotate-0 rotate-180" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    {isKu
+                      ? `نمرەی ئێستات ${result.overallScore}٪ ـە. نمرەی دەرچوون بۆ کردنەوەی قۆناغی داهاتوو ٦٠٪ ـە. تکایە دووبارە تاقی بکەرەوە تا قۆناغی #${currentStep.id + 1} بکرێتەوە.`
+                      : isAr
+                      ? `نتيجتك الحالية هي ${result.overallScore}%. درجة النجاح المطلوبة لفتح المرحلة التالية هي 60%. يرجى إعادة المحاولة لفتح المرحلة #${currentStep.id + 1}.`
+                      : `Your current score is ${result.overallScore}%. A passing score of 60% is required to unlock the next level. Please retry stage #${currentStep.id}.`}
+                  </div>
+                </div>
+              )}
+
               {/* Retest button */}
               <button
+                type="button"
                 onClick={() => {
                   setResult(null);
                   setRecordedAudioBase64(null);
@@ -1614,38 +2330,17 @@ export const VoiceAssessmentTab: React.FC<VoiceAssessmentTabProps> = ({
                 }}
                 className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
-                <span>
-                  {isAr ? 'إعادة تسجيل الصوت والاختبار' : isKu ? 'دووبارە تۆمارکردنەوە و تاقیکردنەوە' : 'Retake this test'}
-                </span>
-              </button>
-            </div>
-          ) : (
-            <div className="h-full min-h-[350px] flex flex-col items-center justify-center bg-slate-900/40 border border-dashed border-slate-800 rounded-3xl p-8 text-center">
-              <Award className="w-12 h-12 text-slate-600 mb-3" />
-              <h3 className="text-base font-bold text-slate-400 mb-1">
-                {isAr ? 'بانتظار تسجيل صوتك' : isKu ? 'چاوەڕێی دەنگەکەتین' : 'Awaiting Your Voice'}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-                {isAr
-                  ? 'اضغط على زر الميكروفون على اليمين وتحدث بوضوح، وسيقوم الذكاء الاصطناعي بتقييم مخارج الحروف والطلاقة بدقة متناهية.'
-                  : isKu
-                  ? 'دوگمەی مایکرۆفۆن لە لای چەپ دابگرە، وەڵامی پرسیارەکە بە دەنگ بدەرەوە بۆ دەستکەوتنی ئاستی فەرمیت.'
-                  : 'Click the mic button to speak. Your full CEFR diagnostic report will appear here.'}
-              </p>
-            </div>
-          )}
-        </div>
+                  <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    {isAr ? 'إعادة تسجيل الصوت والاختبار' : isKu ? 'دووبارە تۆمارکردنەوە و تاقیکردنەوە' : 'Retake this test'}
+                  </span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
-
-      {/* Voice History - Local Storage-backed Last 5 Recorded Attempts */}
-      <VoiceHistory
-        history={voiceHistory}
-        uiLang={uiLang}
-        onClearHistory={handleClearHistory}
-        onDeleteAttempt={handleDeleteAttempt}
-        onSelectStage={handleSelectStageFromHistory}
-      />
+      )}
     </div>
   );
 };

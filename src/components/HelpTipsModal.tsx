@@ -40,14 +40,14 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
                 {isAr ? 'دليل إتقان الصوت والنطق' : isKu ? 'ڕێنمایی گەیشتن بە نمرەی ٩٥٪+' : 'How to Achieve 95%+ Speaking Score'}
               </h3>
               <p className="text-[10px] text-slate-400">
-                {isKu ? 'تەکنیکەکانی مایکڕۆفۆن و ڕێکخستنی دەنگ' : 'Microphone & cadence guidelines'}
+                {isAr ? 'إرشادات الميكروفون وسلاسة النطق' : isKu ? 'تەکنیکەکانی مایکڕۆفۆن و ڕێکخستنی دەنگ' : 'Microphone & cadence guidelines'}
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+            className="p-2 rounded-xl bg-slate-900 text-slate-400 hover:text-white border border-slate-800 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -61,10 +61,12 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-white mb-1">
-                {isKu ? 'دووری گونجاوی مایکڕۆفۆن (١٠ بۆ ١٥ سانتیمەتر)' : 'Optimal Mic Distance (10-15cm)'}
+                {isAr ? 'المسافة المثالية من الميكروفون (10 إلى 15 سم)' : isKu ? 'دووری گونجاوی مایکڕۆفۆن (١٠ بۆ ١٥ سانتیمەتر)' : 'Optimal Mic Distance (10-15cm)'}
               </h4>
               <p className="text-slate-400 leading-relaxed">
-                {isKu
+                {isAr
+                  ? 'حافظ على مسافة معتدلة بين فمك والميكروفون لتفادي التشويش الناتج عن اندفاع الهواء المفاجئ في بيئة هادئة.'
+                  : isKu
                   ? 'مایکەکە زۆر لە لێوەکانت نزیک مەکەرەوە تا دەنگی هەوا و پشکنین نەبێتە هۆی شێواندن. شوێنێکی بێ ژاوەژاو هەڵبژێرە.'
                   : 'Keep microphone 10-15cm away to prevent popping plosives (p, t, k) from distorting acoustic clarity.'}
               </p>
@@ -77,10 +79,12 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-white mb-1">
-                {isKu ? 'بەردەوامی و نەپچڕانی ڕستە (Connected Speech)' : 'Continuous Flow & Clause Cadence'}
+                {isAr ? 'سلاسة وتدفق الجمل المترابطة' : isKu ? 'بەردەوامی و نەپچڕانی ڕستە' : 'Continuous Flow & Clause Cadence'}
               </h4>
               <p className="text-slate-400 leading-relaxed">
-                {isKu
+                {isAr
+                  ? 'يمنح النظام الذكي درجات أعلى عند وصل العبارات بنبرة طبيعية متوازنة بدلاً من التردد وتقطيع كل كلمة بمفردها.'
+                  : isKu
                   ? 'سیستەمی زیرەک نمرەی بەرز دەدات بەو کەسانەی وشەکان دەبەستنەوە بەیەکەوە لە جیاتی وتنەوەی وشە بە وشە بە پچڕاوی.'
                   : 'Speak in full rhythmic clauses rather than isolated word-by-word stutters. Connect prepositions smoothly.'}
               </p>
@@ -93,10 +97,12 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-white mb-1">
-                {isKu ? 'پیتە قورسەکانی کوردی و ئینگلیزی' : 'Mastering Tricky Consonants'}
+                {isAr ? 'إتقان الحروف المركبة والأصوات الخاصة' : isKu ? 'پیتە قورسەکانی کوردی و ئینگلیزی' : 'Mastering Tricky Consonants'}
               </h4>
               <p className="text-slate-400 leading-relaxed">
-                {isKu
+                {isAr
+                  ? 'احرص على إخراج أصوات الحروف الحلقية واللثوية بوضوح تام، وضبط مخارج الحروف الشائعة بدقة متناهية.'
+                  : isKu
                   ? 'لە کوردی جیاوازی بکە لە نێوان "ڕ"ی قورس و "ر"ی سووک، هەروەها لە ئینگلیزی پیتەکانی "th" و "r" بە تەواوی دەرببڕە.'
                   : 'Distinguish dental fricatives [θ/ð] and avoid dropping final consonant clusters.'}
               </p>
@@ -107,23 +113,23 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
             <div className="flex items-center gap-2 text-white font-bold mb-3">
               <Command className="w-4 h-4 text-purple-400" />
-              <span>{isKu ? 'دوگمە خێراکانی کیبۆرد (Shortcuts):' : 'Keyboard Shortcuts:'}</span>
+              <span>{isAr ? 'اختصارات لوحة المفاتيح:' : isKu ? 'دوگمە خێراکانی کیبۆرد:' : 'Keyboard Shortcuts:'}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                <span className="text-slate-400">{isKu ? 'تۆمارکردن / ڕاگرتن' : 'Record / Stop'}</span>
+                <span className="text-slate-400">{isAr ? 'تسجيل / إيقاف' : isKu ? 'تۆمارکردن / ڕاگرتن' : 'Record / Stop'}</span>
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-mono text-[10px]">Space</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                <span className="text-slate-400">{isKu ? 'گوێگرتن لە دەنگ' : 'Replay Audio'}</span>
+                <span className="text-slate-400">{isAr ? 'إعادة الاستماع' : isKu ? 'گوێگرتن لە دەنگ' : 'Replay Audio'}</span>
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[10px]">R</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                <span className="text-slate-400">{isKu ? 'دەرخستنی وەرگێڕان' : 'Toggle Translation'}</span>
+                <span className="text-slate-400">{isAr ? 'إظهار الترجمة' : isKu ? 'دەرخستنی وەرگێڕان' : 'Toggle Translation'}</span>
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-[10px]">T</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
-                <span className="text-slate-400">{isKu ? 'داخستنی مۆداڵ' : 'Close Modal'}</span>
+                <span className="text-slate-400">{isAr ? 'إغلاق النافذة' : isKu ? 'داخستنی مۆداڵ' : 'Close Modal'}</span>
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">Esc</kbd>
               </div>
             </div>
@@ -134,9 +140,9 @@ export const HelpTipsModal: React.FC<HelpTipsModalProps> = ({
         <div className="p-4 bg-slate-950 border-t border-slate-800 text-right">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all"
+            className="px-5 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all cursor-pointer"
           >
-            {isKu ? 'تێگەیشتم، زۆر سوپاس' : 'Got it, thanks!'}
+            {isAr ? 'فهمت ذلك، شكراً' : isKu ? 'تێگەیشتم، زۆر سوپاس' : 'Got it, thanks!'}
           </button>
         </div>
       </div>

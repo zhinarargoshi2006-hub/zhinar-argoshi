@@ -1,4 +1,4 @@
-import { AssessmentResult, ChatMessage, TestStep, TargetLanguage } from '../types';
+import { AssessmentResult, ChatMessage, TestStep, TargetLanguage, UILanguage } from '../types';
 
 export async function requestTTS(
   text: string,
@@ -150,6 +150,7 @@ export async function chatWithTutor(params: {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   scenario: string;
   targetLanguage: TargetLanguage;
+  uiLanguage?: UILanguage;
   tutorPersona?: string;
   userLevel?: string;
   requestAudio?: boolean;
@@ -162,6 +163,7 @@ export async function chatWithTutor(params: {
   correctionTip?: {
     studentMistake?: string;
     betterWay?: string;
+    explanation?: string;
     explanationKurdish?: string;
     explanationArabic?: string;
   };
@@ -211,4 +213,43 @@ export async function transcribeAudio(params: {
     return '';
   }
 }
+
+export interface TranslationResponse {
+  translatedText: string;
+  detectedSource: string;
+  phonetic?: string;
+  alternativeTranslations?: string[];
+  wordBreakdown?: Array<{
+    original: string;
+    translated: string;
+    partOfSpeech?: string;
+  }>;
+  exampleSentences?: Array<{
+    source: string;
+    target: string;
+  }>;
+  audioBase64?: string | null;
+}
+
+export async function translateText(params: {
+  text: string;
+  sourceLang?: 'auto' | 'ku' | 'ar' | 'en';
+  targetLang: 'ku' | 'ar' | 'en';
+  requestAudio?: boolean;
+  domain?: string;
+}): Promise<TranslationResponse> {
+  const res = await fetch('/api/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Translation request failed with status ${res.status}`);
+  }
+
+  return await res.json();
+}
+
 

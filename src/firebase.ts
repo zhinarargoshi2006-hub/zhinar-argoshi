@@ -3,6 +3,13 @@ import {
   getAuth,
   signInAnonymously,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  getAdditionalUserInfo,
   User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -107,6 +114,261 @@ export function initializeUserAuth(onUser: (user: { uid: string; isAnonymous: bo
   }, 300);
 
   return unsubscribe;
+}
+
+// User Profile Document interface
+export interface AppUserProfile {
+  uid: string;
+  email?: string;
+  displayName?: string;
+  targetLanguage: string;
+  uiLanguage: string;
+  highestCefrLevel?: string;
+  totalAttempts?: number;
+  averageScore?: number;
+  completedStages?: number[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Sync or update user profile document in Firestore
+export async function syncUserProfile(
+  uid: string,
+  data: Partial<AppUserProfile>
+): Promise<boolean> {
+  try {
+    const userRef = doc(db, 'users', uid);
+    const existing = await getDoc(userRef);
+    const nowIso = new Date().toISOString();
+
+    if (existing.exists()) {
+      await setDoc(
+        userRef,
+        {
+          ...data,
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
+    } else {
+      const initialProfile: AppUserProfile = {
+        uid,
+        email: data.email || '',
+        displayName: data.displayName || 'Learner',
+        targetLanguage: data.targetLanguage || 'en',
+        uiLanguage: data.uiLanguage || 'ku',
+        highestCefrLevel: data.highestCefrLevel || 'B1',
+        totalAttempts: data.totalAttempts || 0,
+        averageScore: data.averageScore || 0,
+        completedStages: data.completedStages || [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        ...data,
+      };
+      await setDoc(userRef, initialProfile);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to sync user profile in Firestore:', err);
+    return false;
+  }
+}
+
+// Register user with email and password
+export async function registerWithEmailPassword(
+  email: string,
+  pass: string,
+  displayName?: string,
+  targetLanguage: string = 'en',
+  uiLanguage: string = 'ku'
+): Promise<{ user: FirebaseUser; error?: string }> {
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (displayName && displayName.trim()) {
+      await updateProfile(cred.user, { displayName: displayName.trim() });
+    }
+
+    // Save profile to Firestore
+    await syncUserProfile(cred.user.uid, {
+      email: cred.user.email || email.trim(),
+      displayName: displayName?.trim() || email.split('@')[0],
+      targetLanguage,
+      uiLanguage,
+    });
+
+    // Save persistent ID for consistency
+    try {
+      localStorage.setItem('ku_voice_firebase_uid_v1', cred.user.uid);
+    } catch (e) {}
+
+    return { user: cred.user };
+  } catch (err: any) {
+    return { user: null as any, error: err?.code || err?.message || 'auth/unknown-error' };
+  }
+}
+
+// Sign in with email and password
+export async function loginWithEmailPassword(
+  email: string,
+  pass: string
+): Promise<{ user: FirebaseUser; error?: string }> {
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+
+    // Save persistent ID
+    try {
+      localStorage.setItem('ku_voice_firebase_uid_v1', cred.user.uid);
+    } catch (e) {}
+
+    return { user: cred.user };
+  } catch (err: any) {
+    return { user: null as any, error: err?.code || err?.message || 'auth/unknown-error' };
+  }
+}
+
+// Sign in or sign up seamlessly using Google Sign-In popup
+export async function signInWithGoogle(
+  targetLanguage: string = 'en',
+  uiLanguage: string = 'ku'
+): Promise<{ user: FirebaseUser; isNewUser?: boolean; error?: string }> {
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const cred = await signInWithPopup(auth, provider);
+    const additionalInfo = getAdditionalUserInfo(cred);
+    const isNewUser = !!additionalInfo?.isNewUser;
+
+    // Save or merge user profile in Firestore
+    await syncUserProfile(cred.user.uid, {
+      email: cred.user.email || '',
+      displayName: cred.user.displayName || cred.user.email?.split('@')[0] || 'Learner',
+      targetLanguage,
+      uiLanguage,
+    });
+
+    // Save persistent user ID for consistent session handling
+    try {
+      localStorage.setItem('ku_voice_firebase_uid_v1', cred.user.uid);
+    } catch (e) {}
+
+    return { user: cred.user, isNewUser };
+  } catch (err: any) {
+    return { user: null as any, error: err?.code || err?.message || 'auth/unknown-error' };
+  }
+}
+
+// Update user profile data in both Firestore and Firebase Auth
+export async function updateUserProfileData(
+  uid: string,
+  updates: {
+    displayName?: string;
+    highestCefrLevel?: string;
+    targetLanguage?: string;
+    uiLanguage?: string;
+  }
+): Promise<boolean> {
+  try {
+    if (updates.displayName && updates.displayName.trim() && auth.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: updates.displayName.trim() });
+    }
+    await syncUserProfile(uid, updates);
+    return true;
+  } catch (err) {
+    console.warn('Failed to update user profile:', err);
+    return false;
+  }
+}
+
+// Sign out user
+export async function logoutAppUser(): Promise<void> {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.warn('Sign out warning:', err);
+  }
+}
+
+// Translate Firebase Auth error code to user's language
+export function translateFirebaseAuthError(code: string, uiLang: string): string {
+  const isAr = uiLang === 'ar';
+  const isKu = uiLang === 'ku';
+
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return isAr
+        ? 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول أو استخدام بريد آخر.'
+        : isKu
+        ? 'ئەم ئیمەیڵە پێشتر لە سیستەمەکە تۆمار کراوە. تکایە بچۆ ژوورەوە یان ئیمەیڵێکی تر بەکاربێنە.'
+        : 'This email is already registered. Please sign in or use another email.';
+    case 'auth/invalid-email':
+      return isAr
+        ? 'عنوان البريد الإلكتروني غير صالح. يرجى التأكد من كتابته بشكل صحيح.'
+        : isKu
+        ? 'فۆرماتی ئیمەیڵەکە نادروستە. تکایە بە دروستی بینوسە (نموونە name@example.com).'
+        : 'Invalid email address format. Please check and try again.';
+    case 'auth/weak-password':
+      return isAr
+        ? 'كلمة المرور ضعيفة جداً. يجب أن تحتوي على 6 أحرف على الأقل.'
+        : isKu
+        ? 'وشەی نهێنی زۆر لاوازە. دەبێت لانی کەم ٦ پیت یان زیاتر بێت.'
+        : 'Password is too weak. Please use at least 6 characters.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return isAr
+        ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التحقق وإعادة المحاولة.'
+        : isKu
+        ? 'ئیمەیڵ یان وشەی نهێنی هەڵەیە. تکایە زانیارییەکانت بپشکنەوە.'
+        : 'Incorrect email or password. Please verify and try again.';
+    case 'auth/too-many-requests':
+      return isAr
+        ? 'تم حظر الحساب مؤقتاً لكثرة المحاولات الخاطئة. يرجى الانتظار قليلاً.'
+        : isKu
+        ? 'هەوڵی هەڵەی زۆر دراوە. کەمێکی تر چاوەڕێ بکە و هەوڵ بدەرەوە.'
+        : 'Too many unsuccessful attempts. Access temporarily disabled. Please wait a few moments.';
+    case 'auth/popup-closed-by-user':
+      return isAr
+        ? 'تم إغلاق نافذة تسجيل الدخول عبر Google قبل إكمال العملية.'
+        : isKu
+        ? 'پەنجەرەی چوونە ژوورەوەی گووگڵ داخرا پێش تەواوبوونی پڕۆسەکە.'
+        : 'Google sign-in popup was closed before completing authentication.';
+    case 'auth/popup-blocked':
+      return isAr
+        ? 'قام المتصفح بحظر نافذة Google المنبثقة. يرجى السماح بالنوافذ المنبثقة من شريط العنوان ثم المحاولة.'
+        : isKu
+        ? 'وێبگەڕەکەت پەنجەرەی گووگڵی بلۆک کرد. تکایە ڕێگە بە Pop-ups بدە و دووبارە هەوڵبدەرەوە.'
+        : 'The browser blocked the Google sign-in popup. Please allow popups for this site and try again.';
+    case 'auth/cancelled-popup-request':
+      return isAr
+        ? 'تم إلغاء طلب تسجيل الدخول.'
+        : isKu
+        ? 'داواکاریی چوونە ژوورەوە هەڵوەشێنرایەوە.'
+        : 'Sign-in popup request was cancelled.';
+    case 'auth/account-exists-with-different-credential':
+      return isAr
+        ? 'يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني بطريقة دخول مختلفة (مثل كلمة المرور).'
+        : isKu
+        ? 'ئەم ئیمەیڵە پێشتر بە ڕێگەیەکی تر تۆمار کراوە (وەک پاسۆرد). تکایە بە پاسۆرد بچۆ ژوورەوە.'
+        : 'An account already exists with this email using a different sign-in method.';
+    case 'auth/operation-not-allowed':
+      return isAr
+        ? 'تسجيل الدخول عبر Google غير مفعل حالياً في إعدادات النظام.'
+        : isKu
+        ? 'چوونە ژوورەوە بە گووگڵ لە ئێستادا لە سیستەمەکە چالاک نەکراوە.'
+        : 'Google sign-in is not enabled in Firebase Authentication.';
+    case 'auth/network-request-failed':
+      return isAr
+        ? 'تعذر الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت.'
+        : isKu
+        ? 'کێشەی هێڵی ئینتەرنێت هەیە. تکایە پەیوەستبوون بە ئینتەرنێت بپشکنە.'
+        : 'Network connection failed. Please check your internet connection.';
+    default:
+      return isAr
+        ? 'حدث خطأ أثناء المصادقة. يرجى إعادة المحاولة.'
+        : isKu
+        ? 'هەڵەیەک لە چوونە ژوورەوە ڕوویدا. تکایە دووبارە هەوڵ بدەرەوە.'
+        : 'An authentication error occurred. Please try again.';
+  }
 }
 
 // Synchronize speaking attempt to Firestore

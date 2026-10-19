@@ -64,11 +64,11 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
       : selectedDrill.textKu;
 
   const translationPhrase =
-    targetLang === 'en'
-      ? selectedDrill.textKu
-      : targetLang === 'ar'
-      ? selectedDrill.textKu
-      : selectedDrill.textEn;
+    isAr
+      ? (targetLang === 'ar' ? (selectedDrill.textKu || selectedDrill.textEn) : selectedDrill.textAr || selectedDrill.textEn)
+      : isKu
+      ? (targetLang === 'ku' ? selectedDrill.textEn : selectedDrill.textKu)
+      : (targetLang === 'en' ? (selectedDrill.textKu || selectedDrill.textAr) : selectedDrill.textEn);
 
   // Listen to native model audio (full sentence)
   const handlePlaySentence = async (speed: number = voiceSpeed) => {
@@ -238,13 +238,15 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
         <div>
           <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-1">
             <Flame className="w-4 h-4 text-emerald-400" />
-            <span>{isKu ? 'ڕاهێنەری وردی بێژەکردن' : 'Phonetic Pronunciation Studio'}</span>
+            <span>{isAr ? 'استوديو تدريب النطق الصوتي' : isKu ? 'ڕاهێنەری وردی بێژەکردن' : 'Phonetic Pronunciation Studio'}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-white">
-            {isKu ? 'ڕاهێنانی دەنگ لەسەر ڕستە و دەنگە سەختەکان' : 'Sentence-by-Sentence Voice Drills'}
+            {isAr ? 'تمارين النطق جملة بجملة' : isKu ? 'ڕاهێنانی دەنگ لەسەر ڕستە و دەنگە سەختەکان' : 'Sentence-by-Sentence Voice Drills'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            {isKu
+            {isAr
+              ? 'استمع أولاً إلى النطق النموذجي من المدرس الآلي، ثم انطق العبارة بنفسك للحصول على تقييم فوري لمخارج الحروف.'
+              : isKu
               ? 'سەرەتا گوێ لە دەنگی ڕاستەقینەی مامۆستا بگرە، پاشان خۆت بێژەی بکە تاوەکو نمرەی بێژەکردنت وەربگریت.'
               : 'Listen to the native tutor voice first, then speak to receive instant phonetic matching & feedback.'}
           </p>
@@ -256,7 +258,7 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
         {/* Left: Drill list (4 cols) */}
         <div className="lg:col-span-4 space-y-2">
           <span className="text-xs font-bold text-slate-300 block mb-1">
-            {isKu ? 'ڕستەکانی مەشق:' : 'Practice Phrases:'}
+            {isAr ? 'جمل التدريب:' : isKu ? 'ڕستەکانی مەشق:' : 'Practice Phrases:'}
           </span>
           <div className="space-y-2 max-h-[550px] overflow-y-auto pr-1">
             {PRONUNCIATION_DRILLS.map((drill) => {
@@ -382,8 +384,14 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
                 </span>
               </div>
 
-              {/* Word by word interactive sentence display */}
-              <div className="flex flex-wrap items-center gap-1.5 py-1">
+              {/* Word by word interactive sentence display with strict LTR isolation */}
+              <div
+                dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl' }}
+                className={`flex flex-wrap items-center gap-1.5 py-1 ${
+                  targetLang === 'en' ? 'force-ltr justify-start' : 'force-rtl justify-start'
+                }`}
+              >
                 {targetPhrase.split(/\s+/).map((rawWord, idx) => {
                   const cleanW = rawWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
                   const isCurrentPlaying = playingWord === cleanW;
@@ -399,16 +407,30 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
                       }`}
                       title={isAr ? `نطق كلمة "${cleanW}"` : isKu ? `خوێندنەوەی وشەی "${cleanW}"` : `Pronounce "${cleanW}"`}
                     >
-                      <span>{rawWord}</span>
+                      <span dir={targetLang === 'en' ? 'ltr' : 'rtl'} className={targetLang === 'en' ? 'force-ltr' : 'force-rtl'}>
+                        {rawWord}
+                      </span>
                       <Volume2 className={`w-3 h-3 inline-block ml-1 opacity-60 group-hover:opacity-100 ${isCurrentPlaying ? 'text-slate-950' : 'text-emerald-400'}`} />
                     </button>
                   );
                 })}
               </div>
 
-              <p className="text-xs text-slate-400 pt-1 border-t border-slate-900">{translationPhrase}</p>
+              {/* Translation phrase strictly RTL */}
+              <div
+                dir="rtl"
+                style={{ direction: 'rtl', textAlign: 'right' }}
+                className="text-xs text-slate-400 pt-2 border-t border-slate-900 force-rtl text-right"
+              >
+                {translationPhrase}
+              </div>
+
               {selectedDrill.phonetic && (
-                <div className="pt-2 border-t border-slate-800 text-xs font-mono text-emerald-300/80">
+                <div
+                  dir="ltr"
+                  style={{ direction: 'ltr', textAlign: 'left' }}
+                  className="pt-1.5 border-t border-slate-900 text-xs font-mono text-emerald-300/80 force-ltr text-left"
+                >
                   {selectedDrill.phonetic}
                 </div>
               )}
@@ -419,9 +441,9 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
               <HelpCircle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold">
-                  {isKu ? 'ڕێنمایی دەنگی تایبەت:' : 'Pronunciation Tip:'}
+                  {isAr ? 'توجيه النطق الصوتي:' : isKu ? 'ڕێنمایی دەنگی تایبەت:' : 'Pronunciation Tip:'}
                 </span>{' '}
-                {targetLang === 'ar' && selectedDrill.audioTipsAr
+                {isAr && selectedDrill.audioTipsAr
                   ? selectedDrill.audioTipsAr
                   : isKu
                   ? selectedDrill.audioTipsKu
@@ -473,18 +495,26 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
               <div className="text-center">
                 <span className="text-sm font-bold text-white block">
                   {isRecording
-                    ? isKu
+                    ? isAr
+                      ? `جاري تسجيل الصوت (${recordingSeconds} ثانية)`
+                      : isKu
                       ? `دەنگت تۆمار دەکرێت (${recordingSeconds} چرکە)`
                       : `Recording... (${recordingSeconds}s)`
+                    : isAr
+                    ? 'اضغط على الميكروفون وانطق هذه الجملة'
                     : isKu
                     ? 'داگرە و ئەم ڕستەیە بێژە بکە'
                     : 'Tap mic & repeat the sentence'}
                 </span>
                 <span className="text-xs text-slate-400">
                   {isRecording
-                    ? isKu
+                    ? isAr
+                      ? 'اضغط مجدداً لإيقاف التسجيل واستلام التقييم'
+                      : isKu
                       ? 'دووبارە دایگرە بۆ وەرگرتنی نمرە'
                       : 'Tap to stop & see your accuracy'
+                    : isAr
+                    ? 'ستحصل على تحليل فوري لمخارج الحروف والكلمات'
                     : isKu
                     ? 'پێوەری هەڵسەنگاندن و شیکردنەوەی وشەکانت پێ دەدرێت'
                     : 'Get your instant phonetic match breakdown'}
@@ -506,10 +536,10 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
                   onClick={() => nativeMobileAudioRef.current?.click()}
                   disabled={isRecording || isEvaluating}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/40 hover:border-emerald-400 bg-emerald-500/10 text-xs text-emerald-300 font-semibold transition-colors"
-                  title={isKu ? 'تۆماری دەنگ بە مۆبایل (ئایفۆن و ئەندرۆید)' : 'Mobile Native Voice Memo'}
+                  title={isAr ? 'تسجيل عبر الهاتف الذكي' : isKu ? 'تۆماری دەنگ بە مۆبایل' : 'Mobile Native Voice Memo'}
                 >
                   <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{isKu ? 'مایکی مۆبایل (ئایفۆن / ئەندرۆید)' : 'Mobile Mic'}</span>
+                  <span>{isAr ? 'ميكروفون الهاتف' : isKu ? 'مایکی مۆبایل' : 'Mobile Mic'}</span>
                 </button>
 
                 <input
@@ -525,7 +555,7 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950/70 text-xs text-slate-300 hover:text-white transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{isKu ? 'فایلی دەنگ' : 'Audio File'}</span>
+                  <span>{isAr ? 'ملف صوتي' : isKu ? 'فایلی دەنگ' : 'Audio File'}</span>
                 </button>
               </div>
             </div>
@@ -535,7 +565,7 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
               <div className="p-6 rounded-2xl bg-slate-950/70 border border-slate-800 text-center animate-pulse">
                 <Sparkles className="w-6 h-6 text-emerald-400 mx-auto mb-2 animate-spin" />
                 <span className="text-xs font-bold text-slate-300">
-                  {isKu ? 'شیکردنەوەی بێژەکردنی وشەکانت...' : 'Calculating phonetic match score...'}
+                  {isAr ? 'جاري تحليل نطق الكلمات والدرجة الصوتية...' : isKu ? 'شیکردنەوەی بێژەکردنی وشەکانت...' : 'Calculating phonetic match score...'}
                 </span>
               </div>
             ) : result ? (
@@ -564,25 +594,35 @@ export const PronunciationTab: React.FC<PronunciationTabProps> = ({
                     })()}
                     <div>
                       <span className="text-xs font-bold text-white block">
-                        {isKu ? 'ڕێژەی دروستی بێژەکردن' : 'Pronunciation Accuracy'}
+                        {isAr ? 'دقة مخارج الحروف والنطق' : isKu ? 'ڕێژەی دروستی بێژەکردن' : 'Pronunciation Accuracy'}
                       </span>
                       <span className="text-[11px] text-slate-400">
                         {result.scores.pronunciation >= 95
-                          ? isKu
+                          ? isAr
+                            ? 'نطق ممتاز ومطابق لمتحدثي اللغة الأصليين!'
+                            : isKu
                             ? 'نایاب و بێ هەڵە! وەک زمانی دایک'
                             : 'Flawless! Native-like mastery'
                           : result.scores.pronunciation >= 85
-                          ? isKu
+                          ? isAr
+                            ? 'جيد جداً! نطق سلس ومخارج واضحة'
+                            : isKu
                             ? 'زۆر باشە! دەربڕینێکی ڕەوان و ڕوون'
                             : 'Excellent! Very natural'
                           : result.scores.pronunciation >= 70
-                          ? isKu
+                          ? isAr
+                            ? 'جيد، أغلب الكلمات واضحة ومفهومة'
+                            : isKu
                             ? 'باشە، بەشێکی زۆری وشەکان دروستن'
                             : 'Good, largely clear articulation'
                           : result.scores.pronunciation >= 50
-                          ? isKu
+                          ? isAr
+                            ? 'متوسط، يحتاج لبعض التدريب على مخارج الحروف'
+                            : isKu
                             ? 'مامناوەند، پێویستی بە تۆزێک ڕێکخستنی دەنگ هەیە'
                             : 'Fair, needs sound adjustments'
+                          : isAr
+                          ? 'يحتاج لمزيد من التدريب ومخارج أوضح'
                           : isKu
                           ? 'نزمە، پێویستی بە مەشقی زۆرترە'
                           : 'Needs more practice and audible volume'}

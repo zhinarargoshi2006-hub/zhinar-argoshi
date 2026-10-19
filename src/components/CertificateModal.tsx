@@ -34,7 +34,11 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
   const isKu = uiLang === 'ku';
   const isAr = uiLang === 'ar';
 
-  const [studentName, setStudentName] = useState('هاوڕێی فێرخواز (Learner)');
+  const defaultStudentName = isAr ? 'طالب العلم' : isKu ? 'هاوڕێی فێرخواز' : 'Language Learner';
+  const savedName = typeof window !== 'undefined' ? localStorage.getItem('kd_voice_display_name') : null;
+  const initialName = (savedName && savedName !== 'من (You)' && savedName !== 'You' && savedName !== 'تۆ' && savedName !== 'أنت') ? savedName : defaultStudentName;
+
+  const [studentName, setStudentName] = useState(initialName);
   const [certId] = useState(`KD-VL-${Date.now().toString(36).toUpperCase()}`);
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -69,7 +73,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                 {isAr ? 'الشهادة الرسمية لإتقان النطق' : isKu ? 'بڕوانامەی فەرمیی دەنگیی ئاستی CEFR' : 'Official CEFR Speaking Certificate'}
               </h3>
               <p className="text-[10px] text-slate-400">
-                {isKu ? 'تایبەت بە هەڵسەنگاندنی دەنگ و توانای قسەکردن' : 'Verified Speaking Proficiency Document'}
+                {isAr ? 'وثيقة رسمية معتمدة لتقييم الكفاءة والطلاقة الشفوية' : isKu ? 'تایبەت بە هەڵسەنگاندنی دەنگ و توانای قسەکردن' : 'Verified Speaking Proficiency Document'}
               </p>
             </div>
           </div>
@@ -106,14 +110,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         {/* Name input */}
         <div className="p-4 bg-slate-950/60 border-b border-slate-800/80 flex flex-col sm:flex-row items-center gap-3">
           <label className="text-xs text-slate-400 shrink-0">
-            {isKu ? 'ناوی بەشداربوو لەسەر بڕوانامەکە:' : 'Learner Name on Certificate:'}
+            {isAr ? 'اسم المشارك على الشهادة:' : isKu ? 'ناوی بەشداربوو لەسەر بڕوانامەکە:' : 'Learner Name on Certificate:'}
           </label>
           <input
             type="text"
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
             className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
-            placeholder={isKu ? 'ناوەکەت لێرە بنووسە...' : 'Type your name...'}
+            placeholder={isAr ? 'اكتب اسمك هنا...' : isKu ? 'ناوەکەت لێرە بنووسە...' : 'Type your name...'}
           />
         </div>
 
@@ -139,7 +143,11 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
               Certificate of Spoken Proficiency
             </h1>
             <p className="text-xs text-slate-400 italic">
-              بڕوانامەی شایستەیی و توانای قسەکردنی دەنگیی نێودەوڵەتی
+              {isAr
+                ? 'شهادة الكفاءة والطلاقة الشفوية المعتمدة وفق معايير CEFR الدولية'
+                : isKu
+                ? 'بڕوانامەی شایستەیی و توانای قسەکردنی دەنگیی نێودەوڵەتی'
+                : 'International CEFR Verified Spoken Language Proficiency'}
             </p>
 
             <div className="my-6">
@@ -188,14 +196,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         {/* Footer Actions */}
         <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
           <span className="text-[11px] text-slate-400">
-            {isKu ? 'دەتوانیت بڕوانامەکە چاپ بکەیت یان بە شێوەی وێنە پاشەکەوتی بکەیت' : 'Ready to print or save'}
+            {isAr ? 'الشهادة جاهزة للطباعة أو الحفظ المباشر' : isKu ? 'دەتوانیت بڕوانامەکە چاپ بکەیت یان بە شێوەی وێنە پاشەکەوتی بکەیت' : 'Ready to print or save'}
           </span>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-xs hover:opacity-95 active:scale-95 transition-all shadow-md"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-xs hover:opacity-95 active:scale-95 transition-all shadow-md cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>{isKu ? 'چاپکردنی بڕوانامە' : 'Print Certificate'}</span>
+            <span>{isAr ? 'طباعة الشهادة' : isKu ? 'چاپکردنی بڕوانامە' : 'Print Certificate'}</span>
           </button>
         </div>
       </div>

@@ -23,6 +23,7 @@ interface VoiceHistoryProps {
   onClearHistory: () => void;
   onDeleteAttempt: (id: string) => void;
   onSelectStage?: (stageId: number) => void;
+  onCleanDuplicates?: () => void;
 }
 
 export const VoiceHistory: React.FC<VoiceHistoryProps> = ({
@@ -31,6 +32,7 @@ export const VoiceHistory: React.FC<VoiceHistoryProps> = ({
   onClearHistory,
   onDeleteAttempt,
   onSelectStage,
+  onCleanDuplicates,
 }) => {
   const isKu = uiLang === 'ku';
   const isAr = uiLang === 'ar';
@@ -125,17 +127,30 @@ export const VoiceHistory: React.FC<VoiceHistoryProps> = ({
           </div>
         </div>
 
-        {history.length > 0 && (
-          <button
-            type="button"
-            onClick={onClearHistory}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-red-500/40 text-slate-400 hover:text-red-300 text-xs font-semibold transition-colors cursor-pointer"
-            title={isAr ? 'مسح سجل التسجيلات' : isKu ? 'سڕینەوەی تەواوی مێژوو' : 'Clear all voice history'}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{isAr ? 'مسح السجل' : isKu ? 'سڕینەوەی هەمووی' : 'Clear History'}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onCleanDuplicates && history.length > 0 && (
+            <button
+              type="button"
+              onClick={onCleanDuplicates}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition-colors cursor-pointer"
+              title={isAr ? 'إزالة أي تسجيلات مكررة' : isKu ? 'سڕینەوەی تۆمارە دووبارەکان' : 'Remove duplicate records'}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isAr ? 'إزالة التكرار' : isKu ? 'سڕینەوەی دووبارەکان' : 'Clean Duplicates'}</span>
+            </button>
+          )}
+          {history.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearHistory}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-red-500/40 text-slate-400 hover:text-red-300 text-xs font-semibold transition-colors cursor-pointer"
+              title={isAr ? 'مسح سجل التسجيلات' : isKu ? 'سڕینەوەی تەواوی مێژوو' : 'Clear all voice history'}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isAr ? 'مسح السجل' : isKu ? 'سڕینەوەی هەمووی' : 'Clear History'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* History List or Empty State */}
@@ -202,8 +217,15 @@ export const VoiceHistory: React.FC<VoiceHistoryProps> = ({
                     </h4>
 
                     {/* What user said transcript */}
+                    {/* What user said transcript */}
                     {item.recognizedText && (
-                      <p className="text-[11px] text-slate-400 italic line-clamp-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-800/60">
+                      <p
+                        dir={item.language === 'en' ? 'ltr' : 'rtl'}
+                        style={{ direction: item.language === 'en' ? 'ltr' : 'rtl', textAlign: item.language === 'en' ? 'left' : 'right' }}
+                        className={`text-[11px] text-slate-300 italic line-clamp-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800/60 ${
+                          item.language === 'en' ? 'force-ltr text-left' : 'force-rtl text-right'
+                        }`}
+                      >
                         🗣️ "{item.recognizedText}"
                       </p>
                     )}

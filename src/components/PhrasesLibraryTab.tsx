@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { TargetLanguage, UILanguage } from '../types';
+import { TargetLanguage, UILanguage, SavedBookmark } from '../types';
 import { playWordOrSentence, stopCurrentAudio } from '../utils/audio';
 import {
   Volume2,
   Search,
   BookMarked,
+  Bookmark,
   Sparkles,
   Layers,
   Heart,
@@ -22,6 +23,7 @@ interface PhraseItem {
   phonetic: string;
   tipKu: string;
   tipAr?: string;
+  tipEn?: string;
 }
 
 const PHRASE_COLLECTION: PhraseItem[] = [
@@ -36,6 +38,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: '/haʊ hæv juː biːn ˈduːɪŋ ˈleɪtli/',
     tipKu: 'دەنگی "lately" بە ڕوونی دەرببڕە و لەگەڵ "been" بە خێرایی بیبەستەوە.',
     tipAr: 'انطق "الآونة الأخيرة" بفصاحة مع تسكين الهاء عند الوقف.',
+    tipEn: 'Link "been doing" naturally and emphasize the adverb "lately".',
   },
   {
     id: 'ph2',
@@ -47,7 +50,8 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     ar: 'يسعدني ويشرفني جداً لقاؤك والتعرف عليك.',
     phonetic: '/ɪt ɪz ə ˈpleʒər tuː miːt juː/',
     tipKu: 'دەنگی "s" لە "pleasure" دەنگی "ژ"ی کوردییە.',
-    tipAr: 'عبارة ترحيبية مهذبة ورسمية، ركز على مخرج القاف في "لقاؤك".',
+    tipAr: 'عبارة تترحيبية مهذبة ورسمية، ركز على مخرج القاف في "لقاؤك".',
+    tipEn: 'The "s" in "pleasure" has the voiced /ʒ/ sound.',
   },
   {
     id: 'ph3',
@@ -60,6 +64,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: '/frɒm maɪ pɔɪnt əv vjuː, ðæt meɪks ˈtəʊtl sɛns/',
     tipKu: 'دەنگی "point of view" لەگەڵ یەک بلکێنە.',
     tipAr: 'انتبه لإخراج حرف الظاء في "نظري" ومخرج الطاء في "منطقي".',
+    tipEn: 'Blend "point of view" smoothly into /pɔɪnt əv vjuː/.',
   },
   {
     id: 'ph4',
@@ -72,6 +77,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: '/aɪ kəmˈpliːtli əˈɡriː wɪð wɒt juː dʒʌst sɛd/',
     tipKu: 'تەرکیز لەسەر دەنگی "ee" لە agree و "th" لە with.',
     tipAr: 'تأكيد ودود ومهني في النقاش، ركز على نطق التاء المرققة في "أتفق".',
+    tipEn: 'Maintain clear voiced "th" in "with".',
   },
   {
     id: 'ph5',
@@ -84,6 +90,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: '/kʊd juː tɛl miː haʊ tuː ɡɛt tuː ðə meɪn skwɛər/',
     tipKu: 'وشەی "square" دەنگی "skw" بە نەرمی بێژە بکە.',
     tipAr: 'سؤال استدلالي مهم للمسافرين، ركز على سين "الساحة" المرققة.',
+    tipEn: 'Keep the "skw" blend crisp in "square".',
   },
   {
     id: 'ph6',
@@ -94,8 +101,9 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     ku: 'با بۆ هەفتەی داهاتوو کۆبوونەوەیەکی بەدواداچوون دابنێین.',
     ar: 'دعنا نحدد موعداً لاجتماع المتابعة خلال الأسبوع القادم.',
     phonetic: '/lɛt ʌs ˈʃɛdjuːl ə ˈfɒləʊ ʌp ˈmiːtɪŋ nɛkst wiːk/',
-    tipKu: 'وشەی "schedule" بە شێوازی بەریتانی (شیدیول) یان ئەمریکی (سکێجیول) دەوترێت.',
+    tipKu: 'وشەی "schedule" دەکرێت بە شێوازی بەریتانی یان ئەمریکی بێژە بکرێت.',
     tipAr: 'مصطلح مهني شائع في بيئة العمل، ركز على مخرج العين في "المتابعة".',
+    tipEn: 'Both /ʃɛdjuːl/ (UK) and /ˈskɛdʒuːl/ (US) are standard.',
   },
   {
     id: 'ph7',
@@ -108,6 +116,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: 'Kurdistan welati ashti, shaxa sarbarzakan, u mewandostiya.',
     tipKu: 'پیتی "ڵ"ی قورس لە وڵات و "ڕ" لە سەربەرزەکان دەرببڕە.',
     tipAr: 'عبارة تعبر عن كرم الضيافة والجمال الطبيعي لكوردستان.',
+    tipEn: 'Express the trilled R in "sarbarzakan".',
   },
   {
     id: 'ph8',
@@ -120,6 +129,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: 'Sarkawtn pewisti ba arami, zanst, u teikoshani bardawam haya.',
     tipKu: 'وشەی "سەرکەوتن" بە ڕیتمی بڕگەیی دروست بخوێنەرەوە.',
     tipAr: 'حكمة محفزة للتعلم المستمر، انتبه لإخراج الصاد في "الصبر".',
+    tipEn: 'Syllabic rhythm should flow naturally.',
   },
   {
     id: 'ph9',
@@ -130,8 +140,9 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     ku: 'ئازارێکی توند و کونکەرم لە سنگمدایە کە تەزووی دێت بۆ باڵی چەپم.',
     ar: 'أعاني من ألم حاد ونابض في الصدر يمتد نحو ذراعي الأيسر.',
     phonetic: '/aɪ hæv ə ʃɑːp ˈθrɒbɪŋ peɪn ɪn maɪ tʃɛst ðæt ˈreɪdieɪts tuː maɪ lɛft ɑːm/',
-    tipKu: 'تەرکیز لەسەر دەنگی "th" لە throbbing و "radiates" کە واتای تەزوودان یان بڵاوبوونەوەی ئازارە.',
+    tipKu: 'تەرکیز لەسەر دەنگی "th" لە throbbing و "radiates".',
     tipAr: 'وصف طبي دقيق لأعراض الطوارئ، انتبه لنطق الذال في "ذراعي".',
+    tipEn: 'Stress the first syllable of "radiates" /ˈreɪdieɪts/.',
   },
   {
     id: 'ph10',
@@ -144,6 +155,7 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     phonetic: '/ɑː ðeər ˈɛni ˌkɒntrəˌɪndɪˈkeɪʃənz ɔːr ˈædvɜːs saɪd ɪˈfɛkts wɪð ðɪs ˌæntibaɪˈɒtɪk/',
     tipKu: 'دەستەواژەی "adverse side effects" بڕگەییە و بۆ کاتی وەرگرتنی ڕێنمایی دەرمان پێویستە.',
     tipAr: 'مصطلح صيدلاني دقيق، ركز على نطق الهمزة في "آثار" والضاد في "مضاد".',
+    tipEn: 'Break compound "contraindications" into rhythmic parts.',
   },
   {
     id: 'ph11',
@@ -154,8 +166,9 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     ku: 'پزیشکەکە ڕێنمایی کردم لانیکەم دە کاتژمێر پێش پشکنینی تاقیگەی خوێنەکە بەڕۆژوو بم.',
     ar: 'أوصاني الطبيب بالصيام لمدة عشر ساعات على الأقل قبل إجراء فحص الدم التشخيصي.',
     phonetic: '/ðə fɪˈzɪʃən ɪnˈstrʌktɪd miː tuː fɑːst fɔːr æt liːst tɛn ˈaʊəz ˈpraɪər tuː ðə ˌdaɪəɡˈnɒstɪk blʌd ˈpænəl/',
-    tipKu: 'وشەی "fast" لێرەدا بە واتای بەڕۆژووبوون/خۆپاراستن لە خواردن دێت.',
+    tipKu: 'وشەی "fast" لێرەدا بە واتای خۆپاراستن لە خواردن دێت.',
     tipAr: 'إرشادات مخبرية شائعة، ركز على الصاد في "الصيام" والخاء في "فحص".',
+    tipEn: '"Fast" here means abstaining from food before the clinical test.',
   },
   {
     id: 'ph12',
@@ -166,8 +179,9 @@ const PHRASE_COLLECTION: PhraseItem[] = [
     ku: 'وادەی تیشکی موگناتیسی (MRI)م هەیە بۆ دیاریکردنی هۆکاری سەرەکی ئەم سەرئێشە درێژخایەنانە.',
     ar: 'لدي موعد للتصوير بالرنين المغناطيسي لتحديد السبب الجذري لنوبات الصداع النصفي المزمن.',
     phonetic: '/aɪ æm ˈʃɛdjuːld fɔːr ən ˌɛm ɑːr ˈaɪ skæn tuː dɪˈtɜːmɪn ðə ruːt kɔːz əv ðiːz ˈkrɒnɪk ˈmaɪɡreɪnz/',
-    tipKu: 'بێژەکردنی "chronic migraines" /krɒnɪk maɪɡreɪnz/ بۆ دەربڕینی نیشانەی ئاستی B2 گرنگە.',
+    tipKu: 'بێژەکردنی "chronic migraines" بە دەنگی /krɒnɪk maɪɡreɪnz/.',
     tipAr: 'مصطلح طبي متخصص لصور الأشعة وتشخيص الصداع النصفي.',
+    tipEn: 'Clear articulation of "chronic migraines" without rushing.',
   },
 ];
 
@@ -176,6 +190,8 @@ interface PhrasesLibraryTabProps {
   targetLang: TargetLanguage;
   selectedVoice: string;
   voiceSpeed: number;
+  bookmarks?: SavedBookmark[];
+  onToggleBookmark?: (item: SavedBookmark) => void;
 }
 
 export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
@@ -183,6 +199,8 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
   targetLang,
   selectedVoice,
   voiceSpeed,
+  bookmarks = [],
+  onToggleBookmark,
 }) => {
   const isKu = uiLang === 'ku';
   const isAr = uiLang === 'ar';
@@ -193,11 +211,11 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
 
   const categories = [
     { id: 'all', nameKu: 'هەموو', nameEn: 'All', nameAr: 'الكل' },
-    { id: 'Hospital', nameKu: 'نەخۆشخانە و تەندروستی (B1-B2)', nameEn: 'Hospital & Health', nameAr: 'المستشفى والصحة' },
-    { id: 'Greetings', nameKu: 'سڵاو و ناسین', nameEn: 'Greetings', nameAr: 'التحيات' },
+    { id: 'Hospital', nameKu: 'نەخۆشخانە و تەندروستی', nameEn: 'Hospital & Health', nameAr: 'المستشفى والصحة' },
+    { id: 'Greetings', nameKu: 'سڵاو و ناسین', nameEn: 'Greetings', nameAr: 'التحيات والتعارف' },
     { id: 'Opinion', nameKu: 'ڕا دەربڕین', nameEn: 'Opinions', nameAr: 'إبداء الرأي' },
-    { id: 'Travel', nameKu: 'گەشت', nameEn: 'Travel', nameAr: 'السياحة' },
-    { id: 'Business', nameKu: 'کار و بازرگانی', nameEn: 'Business', nameAr: 'الأعمال' },
+    { id: 'Travel', nameKu: 'گەشت و سەفەر', nameEn: 'Travel', nameAr: 'السياحة والسفر' },
+    { id: 'Business', nameKu: 'کار و بازرگانی', nameEn: 'Business', nameAr: 'الأعمال والشركات' },
     { id: 'Kurdish Core', nameKu: 'کەلتوور و کوردی', nameEn: 'Kurdish Core', nameAr: 'التراث والكوردية' },
   ];
 
@@ -265,13 +283,15 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
         <div>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
             <BookMarked className="w-3.5 h-3.5" />
-            {isKu ? 'بانکی دەنگیی ڕستەکان' : 'Audio Phrasebook'}
+            {isAr ? 'بنك العبارات الصوتية' : isKu ? 'بانکی دەنگیی ڕستەکان' : 'Audio Phrasebook'}
           </span>
           <h2 className="text-xl sm:text-2xl font-bold text-white">
-            {isKu ? 'فەرهەنگی دەنگیی دەستەواژە باوەکان' : 'Core Spoken Audio Library'}
+            {isAr ? 'قاموس العبارات والمحادثات النموذجية' : isKu ? 'فەرهەنگی دەنگیی دەستەواژە باوەکان' : 'Core Spoken Audio Library'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            {isKu
+            {isAr
+              ? 'استمع إلى النطق الأصيل، الرموز الصوتية، ونصائح الإتقان للعبارات اليومية والسريرية.'
+              : isKu
               ? 'دەستەواژە گرنگەکان بە دەنگی ڕاستەقینە و فۆنەتیکەوە لەسەر هەردوو زمانی کوردی و ئینگلیزی ببیستە.'
               : 'Listen to native audio, phonetics, and pronunciation hints for essential conversational expressions.'}
           </p>
@@ -279,13 +299,13 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
 
         {/* Search */}
         <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 text-slate-500 absolute top-3 right-3 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-500 absolute top-3 rtl:left-3 ltr:right-3 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={isKu ? 'گەڕان لە ڕستەکان...' : 'Search phrases...'}
-            className="w-full bg-slate-950 border border-slate-800 rounded-2xl pr-10 pl-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+            placeholder={isAr ? 'البحث في العبارات...' : isKu ? 'گەڕان لە ڕستەکان...' : 'Search phrases...'}
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl rtl:pl-10 rtl:pr-4 ltr:pr-10 ltr:pl-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
       </div>
@@ -296,13 +316,13 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === cat.id
                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
             }`}
           >
-            {isKu ? cat.nameKu : cat.nameEn}
+            {isAr ? cat.nameAr : isKu ? cat.nameKu : cat.nameEn}
           </button>
         ))}
       </div>
@@ -312,17 +332,59 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
         {filtered.map((item) => {
           const isPlaying = playingId === item.id;
           const targetTextStr = targetLang === 'en' ? item.en : targetLang === 'ar' ? item.ar || item.en : item.ku;
+          
+          // Pure translation matching user's selected UI language
+          const translationStr =
+            isAr
+              ? (targetLang === 'ar' ? (item.ku || item.en) : item.ar || item.en)
+              : isKu
+              ? (targetLang === 'ku' ? item.en : item.ku)
+              : (targetLang === 'en' ? item.ku : item.en);
+
+          const categoryStr = isAr ? item.categoryAr || item.category : isKu ? item.categoryKu : item.category;
+          const tipStr = isAr && item.tipAr ? item.tipAr : isKu ? item.tipKu : item.tipEn || item.tipKu;
+
+          const isBookmarked = bookmarks.some(
+            (b) => b.id === item.id || b.text.trim().toLowerCase() === targetTextStr.trim().toLowerCase()
+          );
+
           return (
             <div
               key={item.id}
               className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 hover:border-slate-700 transition-all space-y-3 group"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 uppercase">
-                  {targetLang === 'ar' ? item.categoryAr || item.category : isKu ? item.categoryKu : item.category}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                  {categoryStr}
                 </span>
 
                 <div className="flex items-center gap-1.5">
+                  {/* Bookmark Button with duplicate prevention */}
+                  {onToggleBookmark && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onToggleBookmark({
+                          id: item.id,
+                          text: targetTextStr,
+                          translation: translationStr,
+                          phonetic: item.phonetic,
+                          category: categoryStr,
+                          language: targetLang,
+                          timestamp: Date.now(),
+                        })
+                      }
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                        isBookmarked
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 border-slate-700'
+                      }`}
+                      title={isBookmarked ? (isAr ? 'إزالة من المحفوظات' : isKu ? 'سڕینەوە لە پاشەکەوت' : 'Remove bookmark') : (isAr ? 'إضافة إلى المحفوظات' : isKu ? 'پاشەکەوتکردن' : 'Bookmark')}
+                    >
+                      <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handlePlay(item, 0.75)}
@@ -347,9 +409,15 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
                 </div>
               </div>
 
-              {/* Phrase text with clickable words */}
-              <div>
-                <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              {/* Phrase text with clickable words with strict LTR isolation */}
+              <div className="space-y-1.5">
+                <div
+                  dir={targetLang === 'en' ? 'ltr' : 'rtl'}
+                  style={{ direction: targetLang === 'en' ? 'ltr' : 'rtl' }}
+                  className={`flex flex-wrap items-center gap-1.5 mb-1.5 ${
+                    targetLang === 'en' ? 'force-ltr justify-start' : 'force-rtl justify-start'
+                  }`}
+                >
                   {targetTextStr.split(/\s+/).map((w, wIdx) => {
                     const cleanW = w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
                     const isWordActive = playingWord === cleanW;
@@ -366,20 +434,29 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
                         }`}
                         title={isAr ? `انقر لسماع "${cleanW}"` : isKu ? `کلیک بکە بۆ بیستنی "${cleanW}"` : `Click to hear "${cleanW}"`}
                       >
-                        {w}
+                        <span dir={targetLang === 'en' ? 'ltr' : 'rtl'} className={targetLang === 'en' ? 'force-ltr' : 'force-rtl'}>
+                          {w}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-sm text-emerald-300 font-medium">
-                  {targetLang === 'en' ? item.ku : targetLang === 'ar' ? item.ku : item.en}
-                </p>
+
+                {translationStr && translationStr.trim().toLowerCase() !== targetTextStr.trim().toLowerCase() && (
+                  <p
+                    dir="rtl"
+                    style={{ direction: 'rtl', textAlign: 'right' }}
+                    className="text-sm text-emerald-300 font-medium force-rtl text-right pt-0.5"
+                  >
+                    {translationStr}
+                  </p>
+                )}
               </div>
 
               <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1 text-[11px]">
                 <span className="font-mono text-slate-400 text-[10px]">{item.phonetic}</span>
                 <span className="text-slate-400">
-                  💡 {targetLang === 'ar' && item.tipAr ? item.tipAr : isKu ? item.tipKu : item.tipKu}
+                  💡 {tipStr}
                 </span>
               </div>
             </div>
@@ -389,3 +466,4 @@ export const PhrasesLibraryTab: React.FC<PhrasesLibraryTabProps> = ({
     </div>
   );
 };
+
